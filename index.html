@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Step Helper</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#10233d;color:#fff;text-align:center}
+#start{font-size:2.2rem;padding:2rem 3rem;margin-top:30vh;border-radius:1.5rem;border:0;background:#2ecc71;color:#fff}
+#app{display:none;padding:1rem}
+#list{font-size:1.3rem;opacity:.8}#step{font-size:2.4rem;margin:2rem 0;min-height:6rem}
+#prog{height:1.4rem;background:#334;border-radius:1rem;overflow:hidden}#bar{height:100%;width:0;background:#2ecc71;transition:.4s}
+#status{margin-top:1rem;font-size:1.1rem}.mic{color:#2ecc71}.off{color:#e67e22}
+.b button{font-size:1.1rem;margin:.3rem;padding:.7rem 1rem;border-radius:.7rem;border:0}
+#heard{opacity:.6;font-size:.9rem;margin-top:.5rem}
+</style></head><body>
+<button id="start">▶ Tap to Start</button>
+<div id="app">
+ <div id="list"></div><div id="step">Say a list name</div>
+ <div id="prog"><div id="bar"></div></div><div id="count"></div>
+ <div id="status"></div><div id="heard"></div>
+ <div class="b"><small>Backup buttons:</small><br>
+  <button data-c="done">Done</button><button data-c="repeat">Repeat</button>
+  <button data-c="help">Help</button><button data-c="pause">Pause</button>
+  <button data-c="stop">Stop</button></div>
+</div>
+<script>
+// ---- Edit task lists here ----
+const LISTS={
+ "morning routine":["Use the toilet and flush","Wash your hands with soap","Brush your teeth for two minutes","Wash your face","Get dressed","Eat breakfast","Put your shoes on"],
+ "bedtime routine":["Put on your pajamas","Brush your teeth","Put your clothes in the laundry basket","Plug in your phone","Get into bed"],
+ "make a sandwich":["Wash your hands","Get two slices of bread","Spread the butter","Add the filling","Put the slices together","Put things back in the fridge"],
+ "laundry":["Put clothes in the washer","Add one scoop of detergent","Close the door and press start","When it beeps, move clothes to the dryer","Fold your clothes"]
+};
+const CHECKIN_MS=150000, PRAISE=["Great job!","Well done!","Awesome!","Nice work!","You're doing great!","Fantastic!"];
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
+const $=id=>document.getElementById(id);
+function say(t,cb){speaking=true;try{rec&&rec.abort()}catch(e){}
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;
+ u.onend=u.onerror=()=>{speaking=false;cb&&cb();listen()};speechSynthesis.speak(u);}
+function listen(){if(!SR||speaking||listening||!active)return;
+ try{rec.start();listening=true}catch(e){}}
+function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
+ rec=new SR();rec.lang='en-US';rec.continuous=true;rec.interimResults=false;
+ rec.onstart=()=>$('status').innerHTML='<span class=mic>🎤 Listening…</span>';
+ rec.onresult=e=>{const t=e.results[e.results.length-1][0].transcript.toLowerCase().trim();$('heard').textContent='Heard: "'+t+'"';handle(t)};
+ rec.onerror=e=>{if(e.error==='not-allowed'){active=false;$('status').innerHTML='<span class=off>Microphone blocked. Allow mic access and reload.</span>'}};
+ rec.onend=()=>{listening=false;if(active&&!speaking)setTimeout(listen,300)}; // auto-restart
+}
+function names(){return Object.keys(LISTS).join(', ')}
+function ask(){list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
+ say('Which list would you like to do? You can say '+names()+'.');armCheck()}
+function handle(t){resetCheck();
+ if(/\b(stop|quit|exit|end)\b/.test(t))return stop();
+ if(paused){if(/\b(resume|continue|start|go|ready|unpause)\b/.test(t)){paused=false;say("Okay, let's keep going. "+(list?LISTS[list][i]:''));armCheck()}return}
+ if(!list){const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
+  if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
+ if(/\b(done|finished|finish|next|did it|complete|ok next)\b/.test(t))return next();
+ if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+LISTS[list][i]);
+ if(/\bhelp\b/.test(t))return say('Say done when you finish a step. Say repeat to hear it again, pause to take a break, or stop to end. Your step now is: '+LISTS[list][i]);
+ if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
+ if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return say('Going back. '+LISTS[list][i])}
+ if(/\b(new list|change list|menu)\b/.test(t))return ask();
+}
+function begin(k){list=k;i=0;$('list').textContent=k;show();
+ say("Let's do your "+k+". There are "+LISTS[k].length+" steps. Step one: "+LISTS[k][0]+". Say done when you're finished.");armCheck()}
+function show(){$('step').textContent=LISTS[list][i];bar()}
+function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
+function next(){const s=LISTS[list],p=PRAISE[Math.floor(Math.random()*PRAISE.length)];i++;
+ if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
+  return say(p+' You finished your whole '+k+'! I am proud of you. Say another list name if you want to do more, or say stop.',armCheck)}
+ show();const left=s.length-i;
+ say(`${p} That's ${i} done, ${left} to go. Next step: ${s[i]}. Say done when you're finished.`);armCheck()}
+function resetCheck(){clearTimeout(timer);checks=0}
+function armCheck(){clearTimeout(timer);if(!active||paused)return;timer=setTimeout(()=>{checks++;
+ if(list)say(checks<3?`How's it going with: ${LISTS[list][i].toLowerCase()}? Say done when you're finished, or help if you need it.`:`I'm still here. Your step is: ${LISTS[list][i].toLowerCase()}. Say done when you're ready.`);
+ else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
+function stop(){active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){}
+ say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
+ setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
+async function keepAwake(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active){keepAwake();listen()}});
+$('start').onclick=async()=>{$('start').style.display='none';$('app').style.display='block';active=true;paused=false;
+ try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(e){}
+ keepAwake();if(!rec)setup();ask()};
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?(list?'done':'morning routine'):b.dataset.c));
+</script></body></html>
