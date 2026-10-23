@@ -1,0 +1,31 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bedtime</title>
+<meta name="apple-mobile-web-app-title" content="Bedtime">
+<meta name="theme-color" content="#0f1b3d">
+<link rel="apple-touch-icon" href="icon-180.png"><link rel="manifest" href="manifest.json">
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0f1b3d;color:#dfe6ff;text-align:center}
+#start{font-size:2.2rem;padding:2rem 3rem;margin-top:30vh;border-radius:1.5rem;border:0;background:#7f8fd6;color:#fff}
+#app{display:none;padding:1rem}
+#list{font-size:1.3rem;opacity:.8}#step{font-size:2.4rem;margin:2rem 0;min-height:6rem}
+#prog{height:1.4rem;background:#334;border-radius:1rem;overflow:hidden}#bar{height:100%;width:0;background:#7f8fd6;transition:.4s}
+#status{margin-top:1rem;font-size:1.1rem}.mic{color:#7f8fd6}.off{color:#e67e22}
+.b button{font-size:1.1rem;margin:.3rem;padding:.7rem 1rem;border-radius:.7rem;border:0}
+#heard{opacity:.6;font-size:.9rem;margin-top:.5rem}
+</style></head><body>
+<button id="start">🌙 Start Bedtime</button>
+<div id="app">
+ <div id="list"></div><div id="step"></div>
+ <div id="prog"><div id="bar"></div></div><div id="count"></div>
+ <div id="status"></div><div id="heard"></div>
+ <div class="b"><small>Backup buttons:</small><br>
+  <button data-c="done">Done</button><button data-c="repeat">Repeat</button>
+  <button data-c="help">Help</button><button data-c="pause">Pause</button>
+  <button data-c="stop">Stop</button></div>
+</div>
+<script>const ROUTINE="bedtime routine",CALM_MODE=true;</script>
+<script src="../routines.js"></script>
+<script src="../app.js"></script>
+</body></html>
