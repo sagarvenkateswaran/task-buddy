@@ -45,11 +45,19 @@ const LISTS={
   "Put on your jacket",
   "Comb your hair",
   "Go downstairs for breakfast"],
- "bedtime routine":["Put on your pajamas","Brush your teeth","Put your clothes in the laundry basket","Plug in your phone","Get into bed"],
+ "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
+  {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
+  {text:"Put it in.",wait:60000,auto:'orDone'},
+  {text:"Flush.",wait:60000,auto:'orDone'},
+  "Wash your hands.",
+  {text:"Brush your teeth.",wait:120000,auto:'orDone'},
+  {text:"Rinse your mouth.",wait:30000,auto:'orDone'},
+  {text:"Wash your hands.",wait:30000,auto:'orDone'},
+  {text:"Go to bed. Good night!",wait:15000,auto:'orDone'}],
  "make a sandwich":["Wash your hands","Get two slices of bread","Spread the butter","Add the filling","Put the slices together","Put things back in the fridge"],
  "laundry":["Put clothes in the washer","Add one scoop of detergent","Close the door and press start","When it beeps, move clothes to the dryer","Fold your clothes"]
 };
-const CHECKIN_MS=150000, PRAISE=["Great job!","Well done!","Awesome!","Nice work!","You're doing great!","Fantastic!"];
+const CHECKIN_MS=150000, CALM=["Good.","Nice and easy.","Well done.","Lovely."], PRAISE=["Great job!","Well done!","Awesome!","Nice work!","You're doing great!","Fantastic!"];
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
 const $=id=>document.getElementById(id);
@@ -70,7 +78,7 @@ const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/say done/i.test(T(x))?'':
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro)say(intro);later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
-function speakStep(intro){const x=cur(),me=i;say(intro+T(x).replace(/[.!?]$/,'')+'.'+sfx(x),()=>{if(i!==me||!list)return;
+function speakStep(intro){const x=cur(),me=i;say(intro+(x.speak||T(x)).replace(/[.!?]$/,'')+'.'+sfx(x),()=>{if(i!==me||!list)return;
  if(typeof x==='string'||!x.wait)return armCheck();
  let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(T(x)+'.',rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()})}
 function names(){return Object.keys(LISTS).join(', ')}
@@ -92,14 +100,16 @@ function begin(k){list=k;i=0;$('list').textContent=k;show();
  runStep("Let's do your "+k+". There are "+LISTS[k].length+" steps. Step one:")}
 function show(){$('step').textContent=T(cur());bar()}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
-function next(){clearStep();const s=LISTS[list],p=PRAISE[Math.floor(Math.random()*PRAISE.length)];i++;
+function next(){clearStep();const s=LISTS[list],calm=list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
+ if(i>=s.length&&calm){$('bar').style.width='100%';$('step').textContent='🌙 Good night';list=null;
+  return say("You did everything. I'm proud of you. Snuggle in, close your eyes, and sleep well. Good night.",()=>{active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){};wake&&wake.release()})}
  if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
   return say(p+' You finished your whole '+k+'! I am proud of you. Say another list name if you want to do more, or say stop.',armCheck)}
  show();const left=s.length-i;
  runStep(`${p} That's ${i} done, ${left} to go.`+(typeof s[i]==='object'&&s[i].pre?'':' Next step:'))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
- if(list)say(checks<3?`How's it going with: ${T(cur()).toLowerCase()}? Say done when you're finished, or help if you need it.`:`I'm still here. Your step is: ${T(cur()).toLowerCase()}. Say done when you're ready.`);
+ if(list)say(checks<3?`How's it going with: ${T(cur()).toLowerCase().replace(/[.!?]$/,"")}? Say done when you're finished, or help if you need it.`:`I'm still here. Your step is: ${T(cur()).toLowerCase().replace(/[.!?]$/,"")}. Say done when you're ready.`);
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
 function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort()}catch(e){}
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
