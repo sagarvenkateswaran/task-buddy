@@ -51,7 +51,8 @@ function handle(t){resetCheck();
 }
 function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  LISTS[k]=ORIG[k].filter(x=>!(x&&x.days&&!x.days.includes(d))&&!(x&&x.weather&&TEMP>=65));list=k;i=0;$('list').textContent=k;show();
- runStep("Let's start.")}
+ const g=k==='bedtime routine'?"Hi. It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning! Let's get ready for the day. Take a moment.";
+ say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
 function show(){$('step').textContent=T(cur());bar()}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
 function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefined'&&CALM_MODE)||list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
