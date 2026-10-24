@@ -3,9 +3,13 @@ const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='M
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let lastErr=null,stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
 const $=id=>document.getElementById(id);
-function say(t,cb){speaking=true;try{rec&&rec.abort()}catch(e){}
+let firstDone=false,sayId=0;
+function say(t,cb,_r){speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;
- u.onend=u.onerror=()=>{speaking=false;cb&&cb();listen()};speechSynthesis.speak(u);}
+ u.onend=()=>{if(id!==sayId)return;speaking=false;cb&&cb();listen()};
+ u.onerror=ev=>{if(id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
+  if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);cb&&cb();listen()};
+ speechSynthesis.speak(u);}
 function listen(){if(!SR||speaking||listening||!active)return;
  try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
 function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
@@ -28,9 +32,9 @@ const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro)say(intro);later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
-function speakStep(intro){const x=cur(),me=i;say(intro+P_(x.speak||T(x))+sfx(x),()=>{if(i!==me||!list)return;
+function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone;say(intro+P_(x.speak||T(x))+sfx(x),()=>{if(first)firstDone=true;if(i!==me||!list)return;
  if(typeof x==='string'||!x.wait)return armCheck();
- let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(P_(x.speak||T(x)),rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()})}
+ let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(P_(x.speak||T(x)),rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()},first?1:0)}
 function names(){return Object.keys(LISTS).join(', ')}
 function ask(){if(typeof ROUTINE!=='undefined')return begin(ROUTINE);clearStep();list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
  say('Which list would you like to do? You can say '+names()+'.');armCheck()}
@@ -66,7 +70,22 @@ function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort(
  setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
 async function keepAwake(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen')}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active){keepAwake();listen()}});
-$('start').onclick=async()=>{if(SR&&!rec)setup();getWeather();$('start').style.display='none';$('app').style.display='block';active=true;paused=false;
- try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(e){}
- keepAwake();if(!rec)setup();ask()};
+function primeRec(){return new Promise(res=>{if(!rec)return res('none');let done=false;const fin=r=>{if(done)return;done=true;
+  rec.onstart=rec._os;rec.onerror=rec._oe;rec.onend=rec._oe2;try{rec.abort()}catch(e){};listening=false;setTimeout(()=>res(r),300)};
+ rec._os=rec.onstart;rec._oe=rec.onerror;rec._oe2=rec.onend;
+ rec.onstart=()=>fin('ok');rec.onerror=ev=>fin(ev.error);rec.onend=()=>fin('end');
+ try{rec.start()}catch(x){fin('err')}setTimeout(()=>fin('timeout'),15000)})}
+$('start').onclick=async()=>{
+ // 1) unlock speech inside the tap
+ try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(x){}
+ if(SR&&!rec)setup();getWeather();$('start').style.display='none';$('app').style.display='block';
+ $('step').textContent='🎤 Allow the microphone';$('status').innerHTML='<span class=off>Tap “Allow” if asked…</span>';
+ // 2) get mic + speech-recognition permission BEFORE talking
+ let mic='ok';try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(x){mic='denied'}
+ const r=await primeRec();
+ const blocked=mic==='denied'||r==='not-allowed'||r==='service-not-allowed';
+ active=true;paused=false;keepAwake();
+ if(blocked||!SR){$('status').innerHTML='<span class=off>Microphone blocked — use the buttons below. (Settings › Safari › Microphone)</span>';
+  say("The microphone is blocked. You can use the buttons on the screen.",()=>ask());return}
+ ask()};
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));
