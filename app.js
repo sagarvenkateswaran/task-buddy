@@ -1,18 +1,20 @@
 const CHECKIN_MS=150000, CALM=["Good.","Nice and easy.","Well done.","Lovely."], PRAISE=["Great job!","Well done!","Awesome!","Nice work!","You're doing great!","Fantastic!"];
+const IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
+let lastErr=null,stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
 const $=id=>document.getElementById(id);
 function say(t,cb){speaking=true;try{rec&&rec.abort()}catch(e){}
  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;
  u.onend=u.onerror=()=>{speaking=false;cb&&cb();listen()};speechSynthesis.speak(u);}
 function listen(){if(!SR||speaking||listening||!active)return;
- try{rec.start();listening=true}catch(e){}}
+ try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
 function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
- rec=new SR();rec.lang='en-US';rec.continuous=true;rec.interimResults=false;
+ rec=new SR();rec.lang='en-US';rec.continuous=!IOS;rec.maxAlternatives=1;rec.interimResults=false;
  rec.onstart=()=>$('status').innerHTML='<span class=mic>🎤 Listening…</span>';
  rec.onresult=e=>{const t=e.results[e.results.length-1][0].transcript.toLowerCase().trim();$('heard').textContent='Heard: "'+t+'"';handle(t)};
- rec.onerror=e=>{if(e.error==='not-allowed'){active=false;$('status').innerHTML='<span class=off>Microphone blocked. Allow mic access and reload.</span>'}};
- rec.onend=()=>{listening=false;if(active&&!speaking)setTimeout(listen,300)}; // auto-restart
+ rec.onerror=e=>{lastErr=e.error;$('heard').textContent='Last mic error: '+e.error;listening=false;
+  if(e.error==='not-allowed'||e.error==='service-not-allowed'){active=false;$('status').innerHTML='<span class=off>Microphone blocked ('+e.error+'). Open in Safari, allow mic + Siri/Dictation, reload.</span>'}};
+ rec.onend=()=>{listening=false;if(active&&!speaking)setTimeout(listen,lastErr==='no-speech'||!lastErr?150:600);lastErr=null}; // auto-restart
 }
 const T=x=>typeof x==='string'?x:x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
 const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/say done/i.test(T(x))?'':" Say done when you're finished.");
@@ -56,7 +58,7 @@ function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort(
  setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
 async function keepAwake(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen')}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active){keepAwake();listen()}});
-$('start').onclick=async()=>{$('start').style.display='none';$('app').style.display='block';active=true;paused=false;
+$('start').onclick=async()=>{if(SR&&!rec)setup();$('start').style.display='none';$('app').style.display='block';active=true;paused=false;
  try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(e){}
  keepAwake();if(!rec)setup();ask()};
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));

@@ -3,7 +3,7 @@
  "short_name": "Morning",
  "start_url": "./",
  "scope": "./",
- "display": "standalone",
+ "display": "browser",
  "background_color": "#fff4d6",
  "theme_color": "#fff4d6",
  "icons": [

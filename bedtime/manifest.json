@@ -3,7 +3,7 @@
  "short_name": "Bedtime",
  "start_url": "./",
  "scope": "./",
- "display": "standalone",
+ "display": "browser",
  "background_color": "#0f1b3d",
  "theme_color": "#0f1b3d",
  "icons": [
