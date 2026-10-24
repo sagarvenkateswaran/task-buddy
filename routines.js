@@ -3,7 +3,9 @@ const LISTS={
  // Step formats: "text" = wait for done.  {text, wait:ms, auto:true} = speak, auto-advance after wait (done skips ahead).
  // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
  "morning routine":[
-  "Wipe yourself and flush",
+  "Have you finished your Mukki? Say done.",
+  "Stand up and wipe yourself.",
+  "Flush.",
   "Wash your hands with soap",
   "Get into the shower. Say done when you're in.",
   {text:"Put soap on your body",pre:120000,repeat:3,gap:20000,wait:120000,auto:true},
