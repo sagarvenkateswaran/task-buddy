@@ -1,27 +1,34 @@
 // Edit routines here (shared by /morning and /bedtime)
+const ENDINGS={"morning routine":"You are ready to go out. Have a great day!"};
+const WEATHER_URL='https://api.open-meteo.com/v1/forecast?latitude=40.18&longitude=-75.05&current=temperature_2m&temperature_unit=fahrenheit'; // Southampton, PA
 const LISTS={
  // Step formats: "text" = wait for done.  {text, wait:ms, auto:true} = speak, auto-advance after wait (done skips ahead).
  // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
+ // Conditional: days:[0,3] = only Sunday(0)/Wednesday(3).  {weather:true} = jacket reminder from live temperature (skipped if 65F+).
  "morning routine":[
   "Have you finished your Mukki? Say done.",
   "Stand up and wipe yourself.",
   "Flush.",
-  "Wash your hands with soap",
-  "Get into the shower. Say done when you're in.",
-  {text:"Put soap on your body",pre:120000,repeat:3,gap:20000,wait:120000,auto:true},
-  {text:"Wash your face",wait:120000,auto:true},
-  {text:"Turn off the shower",wait:120000,auto:true},
-  {text:"Put on deodorant",wait:120000,auto:'orDone'},
-  "Grab your phone before you leave the bathroom.",
-  "Make sure you are wearing your towel before you come out of the bathroom.",
-  "Put your shirt on",
-  "Put your underwear on",
-  "Put your pants on",
-  "Hang the towel back on the bathroom rack",
-  "Put on your socks",
-  "Put on your jacket",
-  "Comb your hair",
-  "Go downstairs for breakfast"],
+  "Wash your hands.",
+  {text:"You need to shave today. Put on shaving gel.",days:[0,3]},
+  {text:"Get a clean new razor and shave yourself. Focus and do it slowly. Don't cut yourself.",days:[0,3]},
+  {text:"Get into the shower.",wait:30000,auto:true},
+  {text:"Put soap on.",repeat:4,gap:30000,wait:30000,auto:true},   // said at 0,30,60,90s; advances at 2 min
+  {text:"Wash your face.",wait:60000,auto:true},
+  {text:"Turn off the shower.",wait:15000,auto:true},
+  {text:"Dry yourself with the towel.",wait:45000,auto:true},
+  "Put the towel on.",
+  "Put deodorant on.",
+  {text:"Put on aftershave.",days:[0,3]},
+  "Go out of the bathroom and put on your clothes.",
+  "Put the towel back inside the bathroom.",
+  {weather:true},
+  "Put on your socks.",
+  "Did you comb your hair?",
+  "Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",
+  "Eat breakfast.",
+  "Put the plates in the sink, wash your hands, and rinse your mouth.",
+  "Put on your shoes."],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
   {text:"Put it in.",wait:60000,auto:'orDone'},
