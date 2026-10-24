@@ -28,7 +28,7 @@ function getWeather(){if(typeof WEATHER_URL==='undefined')return;const c=new Abo
   if(TEMP>=65&&list){const s=LISTS[list],w=s.findIndex(x=>x&&x.weather);if(w>i){s.splice(w,1);bar()}}}).catch(()=>{})}
 const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
-const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Press done.");
+const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Say I am done.");
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -45,7 +45,7 @@ function handle(t){resetCheck();
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
  if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+T(cur()));
- if(/\bhelp\b/.test(t))return say('Press done when you finish a step. Say repeat to hear it again, pause to take a break, or stop to end. Your step now is: '+T(cur()));
+ if(/\bhelp\b/.test(t))return say('Say I am done when you finish a step. Say repeat to hear it again, pause to take a break, or stop to end. Your step now is: '+T(cur()));
  if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
@@ -63,7 +63,7 @@ function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefi
  runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
- if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`))}
+ if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Say I am done.':(checks<3?`Still on ${s}? Say I am done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Say I am done.`))}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
 function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort()}catch(e){}
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
