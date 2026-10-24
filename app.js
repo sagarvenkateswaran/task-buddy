@@ -51,7 +51,8 @@ function handle(t){resetCheck();
 }
 function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  LISTS[k]=ORIG[k].filter(x=>!(x&&x.days&&!x.days.includes(d))&&!(x&&x.weather&&TEMP>=65));list=k;i=0;$('list').textContent=k;show();
- const g=k==='bedtime routine'?"Hi. It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning! Let's get ready for the day. Take a moment.";
+ const nm=(($('kidname')&&$('kidname').value)||'').trim();try{localStorage.kidName=nm}catch(e){}
+ const g=k==='bedtime routine'?"Hi"+(nm?' '+nm:'')+". It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning"+(nm?', '+nm:'')+"! Let's get ready for the day. Take a moment.";
  say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
 function show(){$('step').textContent=T(cur());bar()}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
@@ -90,3 +91,5 @@ $('start').onclick=async()=>{
   say("The microphone is blocked. You can use the buttons on the screen.",()=>ask());return}
  ask()};
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));
+
+try{const n=$('kidname');if(n&&localStorage.kidName)n.value=localStorage.kidName}catch(e){}
