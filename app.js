@@ -47,7 +47,7 @@ function handle(t){resetCheck();
 }
 function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  LISTS[k]=ORIG[k].filter(x=>!(x&&x.days&&!x.days.includes(d))&&!(x&&x.weather&&TEMP>=65));list=k;i=0;$('list').textContent=k;show();
- runStep(LISTS[k].length+" steps. Let's start.")}
+ runStep("Let's start.")}
 function show(){$('step').textContent=T(cur());bar()}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
 function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefined'&&CALM_MODE)||list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
@@ -56,7 +56,7 @@ function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefi
  if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
   return say(p+' '+((typeof ENDINGS!=='undefined'&&ENDINGS[k])||('You finished your whole '+k+'! I am proud of you. Have a wonderful day!')),()=>{active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){};wake&&wake.release()})}
  show();const left=s.length-i;
- runStep(`${p} ${i} done, ${left} to go.`)}
+ runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
  if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Say done.':(checks<3?`Still on ${s}? Say done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Say done.`))}
