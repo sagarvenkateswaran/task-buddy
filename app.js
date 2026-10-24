@@ -31,7 +31,7 @@ const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[l
 const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Say done.");
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
-function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro)say(intro);later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
+function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
 function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone;say(intro+P_(x.speak||T(x))+sfx(x),()=>{if(first)firstDone=true;if(i!==me||!list)return;
  if(typeof x==='string'||!x.wait)return armCheck();
  let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(P_(x.speak||T(x)),rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()},first?1:0)}

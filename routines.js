@@ -6,7 +6,7 @@ const LISTS={
  // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
  // Conditional: days:[0,3] = only Sunday(0)/Wednesday(3).  {weather:true} = jacket reminder from live temperature (skipped if 65F+).
  "morning routine":[
-  "Have you finished your Mukki? Say done.",
+  {lead:"Go to Mukki.",text:"Are you done?",pre:300000,repeat:5,gap:60000,wait:60000,auto:true}, // asks at 5,6,7,8,9 min; moves on at 10 min or on yes/done
   "Stand up and wipe yourself.",
   "Flush.",
   "Wash your hands.",
