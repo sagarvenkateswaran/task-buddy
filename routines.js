@@ -1,5 +1,6 @@
 // Edit routines here (shared by /morning and /bedtime)
-const ENDINGS={"morning routine":"You are ready to go out. Have a great day!"};
+const WEEKEND=()=>[0,6].includes(new Date().getDay());
+const ENDINGS={"morning routine":()=>WEEKEND()?"GOODJOB":"You are ready to go out. Have a great day!"};
 const WEATHER_URL='https://api.open-meteo.com/v1/forecast?latitude=40.18&longitude=-75.05&current=temperature_2m&temperature_unit=fahrenheit'; // Southampton, PA
 const LISTS={
  // Step formats: "text" = wait for done.  {text, wait:ms, auto:true} = speak, auto-advance after wait (done skips ahead).
@@ -27,8 +28,9 @@ const LISTS={
   "Did you comb your hair?",
   "Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",
   "Eat breakfast.",
-  "Put the plates in the sink, wash your hands, and rinse your mouth.",
-  "Put on your shoes."],
+  {text:"Put the plates in the sink.",days:[0,6]},  // weekend ends here with "Good job!"
+  {text:"Put the plates in the sink, wash your hands, and rinse your mouth.",days:[1,2,3,4,5]},
+  {text:"Put on your shoes.",days:[1,2,3,4,5]}],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
   {text:"Put it in.",wait:60000,auto:'orDone'},
