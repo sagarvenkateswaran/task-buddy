@@ -5,10 +5,12 @@ let lastErr=null,stepT=[],rec,listening=false,speaking=false,paused=false,active
 const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
 function say(t,cb,_r){speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;
- u.onend=()=>{if(id!==sayId)return;speaking=false;cb&&cb();listen()};
- u.onerror=ev=>{if(id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
-  if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);cb&&cb();listen()};
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
+ let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
+ setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
+ u.onend=fin;
+ u.onerror=ev=>{if(fired||id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
+  if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);fired=true;cb&&cb();listen()};
  speechSynthesis.speak(u);}
 function listen(){return;if(!SR||speaking||listening||!active)return;
  try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
@@ -86,3 +88,4 @@ $('start').onclick=async()=>{
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));
 
 try{const n=$('kidname');if(n&&localStorage.kidName)n.value=localStorage.kidName}catch(e){}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active)keepAwake()});
