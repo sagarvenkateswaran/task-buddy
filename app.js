@@ -4,7 +4,8 @@ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let lastErr=null,stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
 const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
-function say(t,cb,_r){speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
+const VOICE=()=>{try{return localStorage.mode==='voice'}catch(e){return false}};
+function say(t,cb,_r){if(VOICE())t=t.replace(/Press [dD]one/g,'Say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
  let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
  setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
@@ -12,7 +13,7 @@ function say(t,cb,_r){speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(
  u.onerror=ev=>{if(fired||id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
   if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);fired=true;cb&&cb();listen()};
  speechSynthesis.speak(u);}
-function listen(){return;if(!SR||speaking||listening||!active)return;
+function listen(){if(!VOICE())return;if(!SR||speaking||listening||!active)return;
  try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
 function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
  rec=new SR();rec.lang='en-US';rec.continuous=!IOS;rec.maxAlternatives=1;rec.interimResults=false;
@@ -83,9 +84,18 @@ $('start').onclick=async()=>{
  // 1) unlock speech inside the tap
  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(x){}
  getWeather();$('start').style.display='none';$('app').style.display='block';
- $('status').innerHTML='<span class=off>Press Done when you finish each step.</span>';
- active=true;paused=false;keepAwake();ask()};
+ if(!VOICE()){$('status').innerHTML='<span class=off>Press Done when you finish each step.</span>';active=true;paused=false;keepAwake();return ask()}
+ if(SR&&!rec)setup();
+ $('step').textContent='🎤 Allow the microphone';$('status').innerHTML='<span class=off>Tap “Allow” if asked…</span>';
+ let mic='ok';try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(x){mic='denied'}
+ const r=await primeRec();
+ const blocked=mic==='denied'||r==='not-allowed'||r==='service-not-allowed';
+ active=true;paused=false;keepAwake();
+ if(blocked||!SR){localStorage.mode='touch';$('status').innerHTML='<span class=off>Microphone not available. Using touch: press Done.</span>';
+  say("I can't use the microphone, so press done after each step.",()=>ask());return}
+ ask()};
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));
 
 try{const n=$('kidname');if(n&&localStorage.kidName)n.value=localStorage.kidName}catch(e){}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active)keepAwake()});
+try{const m=$('mode');if(m){m.value=localStorage.mode||'touch';m.onchange=()=>{localStorage.mode=m.value}}}catch(e){}
