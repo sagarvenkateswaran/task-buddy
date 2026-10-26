@@ -10,7 +10,7 @@ function say(t,cb,_r){speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(
  u.onerror=ev=>{if(id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
   if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);cb&&cb();listen()};
  speechSynthesis.speak(u);}
-function listen(){if(!SR||speaking||listening||!active)return;
+function listen(){return;if(!SR||speaking||listening||!active)return;
  try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
 function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
  rec=new SR();rec.lang='en-US';rec.continuous=!IOS;rec.maxAlternatives=1;rec.interimResults=false;
@@ -28,7 +28,7 @@ function getWeather(){if(typeof WEATHER_URL==='undefined')return;const c=new Abo
   if(TEMP>=65&&list){const s=LISTS[list],w=s.findIndex(x=>x&&x.weather);if(w>i){s.splice(w,1);bar()}}}).catch(()=>{})}
 const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
-const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Say I am done.");
+const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Press done.");
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -45,7 +45,7 @@ function handle(t){resetCheck();
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
  if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+T(cur()));
- if(/\bhelp\b/.test(t))return say('Say I am done when you finish a step. Say repeat to hear it again, pause to take a break, or stop to end. Your step now is: '+T(cur()));
+ if(/\bhelp\b/.test(t))return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+T(cur()));
  if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
@@ -65,7 +65,7 @@ function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefi
  runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
- if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Say I am done.':(checks<3?`Still on ${s}? Say I am done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Say I am done.`))}
+ if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`))}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
 function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort()}catch(e){}
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
@@ -80,16 +80,9 @@ function primeRec(){return new Promise(res=>{if(!rec)return res('none');let done
 $('start').onclick=async()=>{
  // 1) unlock speech inside the tap
  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(x){}
- if(SR&&!rec)setup();getWeather();$('start').style.display='none';$('app').style.display='block';
- $('step').textContent='🎤 Allow the microphone';$('status').innerHTML='<span class=off>Tap “Allow” if asked…</span>';
- // 2) get mic + speech-recognition permission BEFORE talking
- let mic='ok';try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(x){mic='denied'}
- const r=await primeRec();
- const blocked=mic==='denied'||r==='not-allowed'||r==='service-not-allowed';
- active=true;paused=false;keepAwake();
- if(blocked||!SR){$('status').innerHTML='<span class=off>Microphone blocked — use the buttons below. (Settings › Safari › Microphone)</span>';
-  say("The microphone is blocked. You can use the buttons on the screen.",()=>ask());return}
- ask()};
+ getWeather();$('start').style.display='none';$('app').style.display='block';
+ $('status').innerHTML='<span class=off>Press Done when you finish each step.</span>';
+ active=true;paused=false;keepAwake();ask()};
 document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?'done':b.dataset.c));
 
 try{const n=$('kidname');if(n&&localStorage.kidName)n.value=localStorage.kidName}catch(e){}
