@@ -40,7 +40,7 @@ const LISTS={
   {text:"Brush your teeth.",wait:120000,auto:'orDone'},
   {text:"Rinse your mouth.",wait:30000,auto:'orDone'},
   {text:"Wash your hands.",wait:30000,auto:'orDone'},
-  {text:"Go to bed. Good night!",wait:15000,auto:'orDone'}],
+  {text:"Press Done, and then go to bed. Good night!",wait:15000,auto:'orDone'}],
  "make a sandwich":["Wash your hands","Get two slices of bread","Spread the butter","Add the filling","Put the slices together","Put things back in the fridge"],
  "laundry":["Put clothes in the washer","Add one scoop of detergent","Close the door and press start","When it beeps, move clothes to the dryer","Fold your clothes"]
 };
