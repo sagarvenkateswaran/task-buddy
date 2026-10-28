@@ -28,9 +28,11 @@ const LISTS={
   "Comb your hair.",
   "Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",
   "Eat breakfast.",
-  {text:"Put the plates in the sink.",days:[0,6]},  // weekend ends here with "Good job!"
+  {text:"Put the plates in the sink.",days:[0,6]},
+  {text:"Pick your vitamins and take them with water.",days:[0,6]},  // weekend: after plates; Sat ends next (Good job!); Sun continues to laundry
   {text:"Take your laundry hamper downstairs to the laundry room.",days:[0]},  // Sunday laundry
   {text:"Put the plates in the sink, wash your hands, and rinse your mouth.",days:[1,2,3,4,5]},
+  {text:"Pick your vitamins and take them with water.",days:[1,2,3,4,5]},
   {text:"Put on your shoes.",days:[1,2,3,4,5]}],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
