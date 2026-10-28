@@ -5,7 +5,7 @@ let lastErr=null,stepT=[],rec,listening=false,speaking=false,paused=false,active
 const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
 const VOICE=()=>{try{return localStorage.mode==='voice'}catch(e){return false}};
-function say(t,cb,_r){if(VOICE())t=t.replace(/Press [dD]one/g,'Say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
+function say(t,cb,_r){if(VOICE())t=t.replace(/press Done/gi,'say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
  let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
  setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
@@ -31,11 +31,13 @@ function getWeather(){if(typeof WEATHER_URL==='undefined')return;const c=new Abo
   if(TEMP>=65&&list){const s=LISTS[list],w=s.findIndex(x=>x&&x.weather);if(w>i){s.splice(w,1);bar()}}}).catch(()=>{})}
 const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
-const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/done/i.test(T(x))||/\?\s*$/.test(T(x))?'':" Press done.");
+const needsDone=x=>!(typeof x==='object'&&x.auto===true)&&!/done/i.test(T(x))&&!/\?\s*$/.test(T(x));
+const withDone=(t,x)=>{const b=String(t).replace(/[.!?]+$/,'');return needsDone(x)?b+', and then press Done.':P_(String(t))};
+const stepVoice=x=>withDone(x.speak||T(x),x), stepLabel=x=>withDone(T(x),x);
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
-function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone;say(intro+P_(x.speak||T(x))+sfx(x),()=>{if(first)firstDone=true;if(i!==me||!list)return;
+function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone;say(intro+stepVoice(x),()=>{if(first)firstDone=true;if(i!==me||!list)return;
  if(typeof x==='string'||!x.wait)return armCheck();
  let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(P_(x.speak||T(x)),rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()},first?1:0)}
 function names(){return Object.keys(LISTS).join(', ')}
@@ -47,8 +49,8 @@ function handle(t){resetCheck();
  if(!list){if(typeof ROUTINE!=="undefined")return;const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
- if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+T(cur()));
- if(/\bhelp\b/.test(t))return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+T(cur()));
+ if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+stepVoice(cur()));
+ if(/\bhelp\b/.test(t))return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()));
  if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
@@ -57,7 +59,7 @@ function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  const nm=(($('kidname')&&$('kidname').value)||'').trim();try{localStorage.kidName=nm}catch(e){}
  const g=k==='bedtime routine'?"Hi"+(nm?' '+nm:'')+". It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning"+(nm?', '+nm:'')+"! Let's get ready for the day. Take a moment.";
  say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
-function show(){$('step').textContent=T(cur());bar()}
+function show(){$('step').textContent=stepLabel(cur());bar()}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
 function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefined'&&CALM_MODE)||list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
  if(i>=s.length&&calm){$('bar').style.width='100%';$('step').textContent='🌙 Good night';list=null;
@@ -68,7 +70,7 @@ function next(){clearStep();const s=LISTS[list],calm=(typeof CALM_MODE!=='undefi
  runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
- if(list){const t=T(cur()),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`))}
+ if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)))}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
 function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort()}catch(e){}
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
