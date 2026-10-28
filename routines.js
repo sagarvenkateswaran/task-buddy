@@ -35,6 +35,7 @@ const LISTS={
   {text:"Pick your vitamins and take them with water.",days:[1,2,3,4,5]},
   {text:"Put on your shoes.",days:[1,2,3,4,5]}],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
+  "Turn on the light and the vent in the bathroom, and then press Done.",
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
   {text:"Put it in.",wait:60000,auto:'orDone'},
   {text:"Flush.",wait:60000,auto:'orDone'},
