@@ -88,16 +88,23 @@ const Water={
   exitIndex(){if(!list)return -1;return LISTS[list].findIndex(x=>x&&x.shower==='exit')}
 };
 function showerOf(x){return x&&typeof x==='object'?x.shower:null}
+function showerLoopBounds(){if(!list)return[-1,-1];const s=LISTS[list];let a=-1,b=-1;
+  for(let j=0;j<s.length;j++){if(s[j]&&s[j].shower==='loop'){if(a<0)a=j;b=j}}return[a,b]}
 function jumpToShowerExit(why){
-  if(!list)return;const ex=Water.exitIndex();if(ex<0||i>=ex)return;
+  if(!list)return;const ex=Water.exitIndex();if(ex<0||i>ex)return;
+  if(i===ex)return; // already on exit
   clearStep();i=ex;show();runStep('');
+}
+function jumpToShowerLoopStart(){
+  const[a]=showerLoopBounds();if(a<0)return next();
+  clearStep();i=a;show();runStep('');
 }
 function onWaterOn(){ // enter step may be waiting
   const x=cur();if(showerOf(x)==='enter'&&Water._enterWaiting){Water._enterWaiting=false;clearStep();next()}
 }
 function onWaterOff(){
   const x=cur(),sh=showerOf(x);
-  if(sh==='wash'||sh==='rinse'||sh==='enter')jumpToShowerExit('quiet');
+  if(sh==='enter'||sh==='loop')jumpToShowerExit('quiet');
 }
 
 const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
@@ -120,13 +127,16 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    const nudge=()=>{if(i!==me||!Water._enterWaiting)return;n++;later(x.gap||15000,()=>{if(i!==me||!Water._enterWaiting)return;say(sayHint(n),nudge)})};
    nudge();later(Water.ENTER_FALLBACK,()=>{if(i===me&&Water._enterWaiting){Water._enterWaiting=false;next()}});
    return}
-  // timed wash/rinse; stretch while water runs; rinse holds nudges until water-off
+  // timed loop (soap→rinse→face→toff): while water on, advance/wrap; water off → exit. No mic: run once then next into exit.
   let n=1;
   const afterTimed=()=>{if(i!==me)return;
-   if(Water.ok&&(sh==='wash'||sh==='rinse')&&Water.water){
-    if(sh==='rinse'){const keep=()=>later(x.gap||20000,()=>{if(i!==me)return;if(!Water.water)return jumpToShowerExit('quiet');say(sayHint(++n),keep)});return keep()}
-    let extra=0;const stretch=()=>later(x.gap||20000,()=>{if(i!==me)return;if(!Water.water)return jumpToShowerExit('quiet');extra++;say(sayHint(++n),()=>{if(extra>=2)next();else stretch()})});return stretch()}
-   next()};
+   if(sh==='loop'&&Water.ok){
+    if(!Water.water)return jumpToShowerExit('quiet');
+    const[,b]=showerLoopBounds();
+    if(i<b)return next(); // next loop step
+    return jumpToShowerLoopStart(); // wrap soap→…→toff→soap
+   }
+   next()}; // fallback / non-loop timed
   const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i!==me)return;say(sayHint(n),rep)})}
    else later(x.wait,afterTimed)};rep()};
  const beginSay=()=>say(intro+stepVoice(x),afterSay,first?1:0);
