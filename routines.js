@@ -5,7 +5,8 @@ const WEATHER_URL='https://api.open-meteo.com/v1/forecast?latitude=40.18&longitu
 const LISTS={
  // Step formats: "text" = wait for done.  {text, wait:ms, auto:true} = speak, auto-advance after wait (done skips ahead).
  // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
- // hints:['…'] = mid-step spoken nudges on each repeat (instead of re-saying text).  {hold:true, prompt, gap} = wait forever for Done; re-prompt every gap ms.
+ // hints:['…'] = mid-step spoken nudges on each repeat.  {hold:true, prompt, gap} = wait forever for Done.
+ // shower:'enter'|'wash'|'rinse'|'exit' = morning water-mic gate (AnalyserNode loudness only).
  // Conditional: days:[0,3] = only Sunday(0)/Wednesday(3).  {weather:true} = jacket reminder from live temperature (skipped if 65F+).
  "morning routine":[
   {lead:"Go to Mukki.",text:"Are you done? If you are, press Done.",pre:300000,repeat:5,gap:60000,wait:60000,auto:true}, // asks at 5,6,7,8,9 min; moves on at 10 min or on yes/done
@@ -14,14 +15,13 @@ const LISTS={
   "Wash your hands.",
   {text:"You need to shave today. Put on shaving gel.",days:[0,3]},
   {text:"Get a clean new razor and shave yourself. Focus and do it slowly. Don't cut yourself.",days:[0,3]},
-  // Shower block (all days): timed nudges while phone is outside; hard Done sync before towel
-  {text:"Get into the shower.",wait:30000,auto:true,repeat:3,gap:15000,hints:["Get the water nice and warm.","Step all the way in."]},
-  {text:"Put soap on.",repeat:5,gap:25000,wait:30000,auto:true,hints:["Keep soaping your arms and legs.","Soap your chest and back too.","Don't forget under your arms.","Keep soaping — take your time."]},
-  {text:"Wash your face.",repeat:3,gap:20000,wait:30000,auto:true,hints:["Don't forget your face.","Wash your face gently."]},
-  {text:"Rinse off all the soap.",repeat:4,gap:20000,wait:30000,auto:true,hints:["Rinse your arms and legs.","Rinse your face and hair.","Make sure all the soap is gone."]},
-  // Was: timed "Turn off the shower" + "Dry yourself with the towel" (auto-advanced to towel while still in shower).
-  // Now: wait forever for Done; gentle remind every 2 min. Content of those steps kept in this cue.
-  {text:"Turn off the shower and dry yourself. When you are out, press Done.",hold:true,prompt:"Press Done when you're out of the shower.",gap:120000},
+  // Shower block (all days): water mic (AnalyserNode) gates enter→wash→rinse; exit holds for Done.
+  // shower:'enter'|'wash'|'rinse'|'exit' — morning app only uses these tags for water listening.
+  {text:"Get into the shower.",wait:30000,auto:true,repeat:3,gap:15000,hints:["Get the water nice and warm.","Step all the way in."],shower:'enter'},
+  {text:"Put soap on.",repeat:5,gap:25000,wait:30000,auto:true,hints:["Keep soaping your arms and legs.","Soap your chest and back too.","Don't forget under your arms.","Keep soaping — take your time."],shower:'wash'},
+  {text:"Wash your face.",repeat:3,gap:20000,wait:30000,auto:true,hints:["Don't forget your face.","Wash your face gently."],shower:'wash'},
+  {text:"Rinse off all the soap.",repeat:4,gap:20000,wait:30000,auto:true,hints:["Rinse your arms and legs.","Rinse your face and hair.","Make sure all the soap is gone.","Keep rinsing — take your time."],shower:'rinse'},
+  {text:"Turn off the shower and dry yourself. When you are out, press Done.",hold:true,prompt:"Press Done when you're out of the shower.",gap:120000,shower:'exit'},
   "Put the towel on.",
   "Put deodorant on.",
   {text:"Put on aftershave.",days:[0,3]},
