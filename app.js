@@ -38,8 +38,14 @@ function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
 function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone;say(intro+stepVoice(x),()=>{if(first)firstDone=true;if(i!==me||!list)return;
+ // hold: never auto-advance — optional prompt every gap ms until Done
+ if(typeof x==='object'&&x.hold){const gap=x.gap||120000,prompt=x.prompt||'Press Done when you are ready.';
+  const loop=()=>later(gap,()=>{if(i===me)say(P_(prompt),loop)});loop();return}
  if(typeof x==='string'||!x.wait)return armCheck();
- let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(P_(x.speak||T(x)),rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()},first?1:0)}
+ // timed: speak main text, then optional hints[] on each repeat, then wait → next()
+ let n=1;const hints=typeof x==='object'&&x.hints||[];
+ const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i!==me)return;const h=hints[(n-2)%Math.max(hints.length,1)];say(P_(h||x.speak||T(x)),rep)})}
+  else later(x.wait,()=>{if(i===me)next()})};rep()},first?1:0)}
 function names(){return Object.keys(LISTS).join(', ')}
 function ask(){if(typeof ROUTINE!=='undefined')return begin(ROUTINE);clearStep();list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
  say('Which list would you like to do? You can say '+names()+'.');armCheck()}
