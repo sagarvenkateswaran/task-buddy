@@ -88,6 +88,8 @@ const Water={
   exitIndex(){if(!list)return -1;return LISTS[list].findIndex(x=>x&&x.shower==='exit')}
 };
 function showerOf(x){return x&&typeof x==='object'?x.shower:null}
+function isSilent(x){return !!(x&&typeof x==='object'&&x.silent)}
+function isOnce(x){return !!(x&&typeof x==='object'&&x.once)}
 function showerLoopBounds(){if(!list)return[-1,-1];const s=LISTS[list];let a=-1,b=-1;
   for(let j=0;j<s.length;j++){if(s[j]&&s[j].shower==='loop'){if(a<0)a=j;b=j}}return[a,b]}
 function jumpToShowerExit(why){
@@ -118,7 +120,7 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
  const afterSay=()=>{if(first)firstDone=true;if(i!==me||!list)return;
   if(typeof x==='object'&&x.hold){const gap=x.gap||120000,prompt=x.prompt||'Press Done when you are ready.';
    const loop=()=>later(gap,()=>{if(i===me)say(P_(prompt),loop)});loop();return}
-  if(typeof x==='string'||!x.wait)return armCheck();
+  if(typeof x==='string'||!x.wait){if(isOnce(x)||isSilent(x))return;return armCheck()}
   const hints=(typeof x==='object'&&x.hints)||[];
   const sayHint=n=>{const h=hints.length?hints[(n-2+hints.length*10)%hints.length]:null;return P_(h||x.speak||T(x))};
   // enter + water mic: wait for water (or 3min fallback); keep nudging
@@ -139,6 +141,7 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    next()}; // fallback / non-loop timed
   const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i!==me)return;say(sayHint(n),rep)})}
    else later(x.wait,afterTimed)};rep()};
+ if(isSilent(x)){if(first)firstDone=true;return}
  const beginSay=()=>say(intro+stepVoice(x),afterSay,first?1:0);
  // Morning shower enter: start water mic (await) then speak — keeps TTS + analyser together
  if(sh==='enter'&&typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
@@ -156,8 +159,8 @@ function handle(t){resetCheck();
  if(!list){if(typeof ROUTINE!=="undefined")return;const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
- if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+stepVoice(cur()));
- if(/\bhelp\b/.test(t))return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()));
+ if(/\b(repeat|again|what)\b/.test(t)){if(isSilent(cur()))return;return say('Your step is: '+stepVoice(cur()))}
+ if(/\bhelp\b/.test(t)){if(isSilent(cur()))return;return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()))}
  if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
@@ -177,9 +180,10 @@ function next(){const prev=cur();clearStep();
  if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
   let E=typeof ENDINGS!=='undefined'&&ENDINGS[k];if(typeof E==='function')E=E();return say(E==='GOODJOB'?'Good job!':p+' '+(E||('You finished your whole '+k+'! I am proud of you. Have a wonderful day!')),()=>{active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){};wake&&wake.release()})}
  show();const left=s.length-i;
+ if(isSilent(cur()))return runStep('');
  runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
-function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
+function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;if(isSilent(cur())||isOnce(cur()))return;timer=setTimeout(()=>{checks++;
  if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)))}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
 function stop(){active=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}

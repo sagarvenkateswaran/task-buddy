@@ -7,6 +7,7 @@ const LISTS={
  // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
  // hints:['…'] = mid-step spoken nudges on each repeat.  {hold:true, prompt, gap} = wait forever for Done.
  // shower:'enter'|'loop'|'exit' = morning water-mic; loop wraps soap→rinse→face→toff while water runs.
+ // once:true = speak once, no reminders. silent:true = screen only, wait for Done (no TTS).
  // Conditional: days:[0,3] = only Sunday(0)/Wednesday(3).  {weather:true} = jacket reminder from live temperature (skipped if 65F+).
  "morning routine":[
   {lead:"Go to Mukki.",text:"Are you done? If you are, press Done.",pre:300000,repeat:5,gap:60000,wait:60000,auto:true}, // asks at 5,6,7,8,9 min; moves on at 10 min or on yes/done
@@ -35,8 +36,9 @@ const LISTS={
   {weather:true},
   "Put on your socks.",
   "Comb your hair.",
-  "Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",
-  "Eat breakfast.",
+  // once: speak step once, no check-in repeats. silent: screen only until Done (no TTS/nudges). Quiet until after breakfast.
+  {text:"Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",once:true},
+  {text:"Eat breakfast.",silent:true},
   {text:"Put the plates in the sink.",days:[0,6]},
   {text:"Pick up your vitamins in your hand, put them in your mouth, and swallow them with some water, and then press Done.",days:[0,6]},  // weekend: after plates; Sat ends next (Good job!); Sun continues to laundry
   {text:"Take your laundry hamper downstairs to the laundry room.",days:[0]},  // Sunday laundry
