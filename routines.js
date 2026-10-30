@@ -26,7 +26,11 @@ const LISTS={
   "Put the towel on.",
   "Put deodorant on.",
   {text:"Put on aftershave.",days:[0,3]},
-  "Go out of the bathroom and put on your clothes.",
+  "Go out of the bathroom to your room, and then press Done.",
+  "Put on your underwear, and then press Done.",
+  "Put on your shirt, and then press Done.",
+  "Put on your pants, and then press Done.",
+  "Put on your light jacket, and then press Done.",
   "Put the towel back inside the bathroom.",
   {weather:true},
   "Put on your socks.",
@@ -38,7 +42,8 @@ const LISTS={
   {text:"Take your laundry hamper downstairs to the laundry room.",days:[0]},  // Sunday laundry
   {text:"Put the plates in the sink, wash your hands, and rinse your mouth.",days:[1,2,3,4,5]},
   {text:"Pick up your vitamins in your hand, put them in your mouth, and swallow them with some water, and then press Done.",days:[1,2,3,4,5]},
-  {text:"Put on your shoes.",days:[1,2,3,4,5]}],
+  {text:"Put on your shoes.",days:[1,2,3,4,5]},
+  {text:"Put on your heavy winter jacket, and then press Done.",days:[1,2,3,4,5]}],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
   "Turn on the light and the exhaust in the bathroom, and then press Done.",
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
