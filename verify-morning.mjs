@@ -58,13 +58,16 @@ function assert(cond, msg) { if (!cond) { console.error('FAIL:', msg); process.e
 
 const sun = filterList(0, 35);
 assert(sun.some(t => /shave/i.test(t)), 'Sunday includes shave');
-assert(sun.some(t => /laundry downstairs/i.test(t)), 'Sunday includes laundry');
+assert(sun.some(t => /Take your phone and laundry downstairs/i.test(t)), 'Sunday phone+laundry downstairs');
+assert(sun.some(t => /Load the laundry into the washer/i.test(t)), 'Sunday load washer');
 assert(sun.some(t => /Turn on the washer/i.test(t)), 'Sunday includes turn on washer');
 assert(sun.some(t => /light jacket/i.test(t)), 'Sunday 35F includes light jacket');
 assert(sun.some(t => /heavy winter jacket/i.test(t)), 'Sunday 35F includes heavy jacket');
 assert(!sun.some(t => /^Put on your socks/i.test(t) || /Put on your socks/i.test(t)), 'Sunday excludes socks');
 assert(!sun.some(t => /Put on your shoes/i.test(t)), 'Sunday excludes shoes');
-assert(sun.findIndex(t => /Comb your hair/i.test(t)) < sun.findIndex(t => /Take your phone/i.test(t)), 'phone after comb');
+assert(sun.findIndex(t => /Comb your hair/i.test(t)) < sun.findIndex(t => /Take your phone and laundry downstairs/i.test(t)), 'phone+laundry after comb');
+const sunLaundry = ['Take your phone and laundry downstairs.','Load the laundry into the washer.','Add detergent.','Turn on the washer.'].map(s=>sun.findIndex(t=>t.startsWith(s)||t.includes(s.replace(/\.$/,''))));
+assert(sunLaundry.every(i=>i>=0) && sunLaundry[0]<sunLaundry[1]&&sunLaundry[1]<sunLaundry[2]&&sunLaundry[2]<sunLaundry[3], 'Sunday laundry order');
 assert(sun.findIndex(t => /Turn on the washer/i.test(t)) < sun.findIndex(t => /Swami Namaskarams/i.test(t)), 'laundry before namaskarams');
 assert(sun.findIndex(t => /Swami Namaskarams/i.test(t)) < sun.findIndex(t => /Eat breakfast/i.test(t)), 'namaskarams before breakfast');
 

@@ -40,10 +40,9 @@ const LISTS={
   {weather:true},
   {text:"Put on your socks.",days:[1,2,3,4,5]}, // weekdays only
   "Comb your hair.",
-  // Sunday laundry after combing, before namaskarams/breakfast (already going downstairs)
-  {text:"Take your phone with you.",days:[0]},
-  {text:"Bring the laundry downstairs.",days:[0]},
-  {text:"Put the laundry in the washer.",days:[0]},
+  // Sunday laundry after combing, before namaskarams/breakfast
+  {text:"Take your phone and laundry downstairs.",days:[0]},
+  {text:"Load the laundry into the washer.",days:[0]},
   {text:"Add detergent.",days:[0]},
   {text:"Turn on the washer.",days:[0]},
   // once: speak step once, no check-in repeats. silent: screen only until Done (no TTS/nudges). Quiet until after breakfast.
