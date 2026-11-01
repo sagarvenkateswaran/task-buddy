@@ -68,13 +68,13 @@ assert(!sun.some(t => /Put on your shoes/i.test(t)), 'Sunday excludes shoes');
 assert(sun.findIndex(t => /Comb your hair/i.test(t)) < sun.findIndex(t => /Take your phone and laundry downstairs/i.test(t)), 'phone+laundry after comb');
 const sunLaundry = ['Take your phone and laundry downstairs.','Load the laundry into the washer.','Add detergent.','Turn on the washer.'].map(s=>sun.findIndex(t=>t.startsWith(s)||t.includes(s.replace(/\.$/,''))));
 assert(sunLaundry.every(i=>i>=0) && sunLaundry[0]<sunLaundry[1]&&sunLaundry[1]<sunLaundry[2]&&sunLaundry[2]<sunLaundry[3], 'Sunday laundry order');
-assert(sun.findIndex(t => /Turn on the washer/i.test(t)) < sun.findIndex(t => /Swami Namaskarams/i.test(t)), 'laundry before namaskarams');
-assert(sun.findIndex(t => /Swami Namaskarams/i.test(t)) < sun.findIndex(t => /Eat breakfast/i.test(t)), 'namaskarams before breakfast');
-
-const sunSwami = sun.find(t => /Swami Namaskarams/i.test(t));
-assert(!!sunSwami, 'Sunday has Swami step');
-assert(!/Take your phone/i.test(sunSwami), 'Sunday Swami omits Take your phone');
-assert(/once/.test(sunSwami), 'Sunday Swami still once');
+assert(!sun.some(t => /Swami Namaskarams/i.test(t)), 'Sunday excludes Swami');
+const washI = sun.findIndex(t => /Turn on the washer/i.test(t));
+const brkI = sun.findIndex(t => /Eat breakfast/i.test(t));
+const platesI = sun.findIndex(t => /Put the plates in the sink/i.test(t) && !/wash your hands/i.test(t));
+assert(washI >= 0 && brkI === washI + 1, 'Sunday: washer then breakfast immediately');
+assert(brkI >= 0 && /silent/.test(sun[brkI]), 'Sunday breakfast still silent');
+assert(platesI === brkI + 1, 'Sunday: breakfast then plates');
 
 const tue = filterList(2, 55);
 assert(tue.some(t => /shave/i.test(t)), 'Tuesday includes shave');

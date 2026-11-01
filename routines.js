@@ -40,14 +40,13 @@ const LISTS={
   {weather:true},
   {text:"Put on your socks.",days:[1,2,3,4,5]}, // weekdays only
   "Comb your hair.",
-  // Sunday laundry after combing, before namaskarams/breakfast
+  // Sunday laundry after combing, then silent breakfast (no Swami on laundry day)
   {text:"Take your phone and laundry downstairs.",days:[0]},
   {text:"Load the laundry into the washer.",days:[0]},
   {text:"Add detergent.",days:[0]},
   {text:"Turn on the washer.",days:[0]},
-  // once: speak step once, no check-in repeats. silent: screen only until Done (no TTS/nudges). Quiet until after breakfast.
-  // Sunday: phone already taken for laundry; other days keep phone cue on this step
-  {text:"Go downstairs and do 7 Swami Namaskarams.",once:true,days:[0]},
+  // Non-Sunday: once Swami then silent breakfast. Sunday (laundry): washer → silent breakfast (no Swami).
+  // silent: screen only until Done (no TTS/nudges). Quiet until after breakfast; voice resumes at plates.
   {text:"Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",once:true,days:[1,2,3,4,5,6]},
   {text:"Eat breakfast.",silent:true},
   {text:"Put the plates in the sink.",days:[0,6]},
