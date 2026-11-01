@@ -121,9 +121,11 @@ function jumpToShowerLoopStart(){
   clearStep();i=a;show();runStep('');
 }
 function onWaterOn(){ // enter step may be waiting
+  if(paused)return;
   const x=cur();if(showerOf(x)==='enter'&&Water._enterWaiting){Water._enterWaiting=false;clearStep();next()}
 }
 function onWaterOff(){
+  if(paused)return;
   const x=cur(),sh=showerOf(x);
   if(sh==='enter'||sh==='loop')jumpToShowerExit('quiet');
 }
@@ -172,15 +174,38 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
 function names(){return Object.keys(LISTS).join(', ')}
 function ask(){if(typeof ROUTINE!=='undefined')return begin(ROUTINE);clearStep();list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
  say('Which list would you like to do? You can say '+names()+'.');armCheck()}
+function setPausedUI(on){
+ const rb=$('resumeBtn'),pb=document.querySelector('[data-c="pause"]');
+ if(rb)rb.style.display=on?'block':'none';
+ if(pb)pb.style.display=on?'none':'';
+ if(on)$('status').innerHTML='<span class=off>⏸ Paused — press Resume</span>';
+}
+function doPause(){
+ if(!active||paused)return;
+ paused=true;clearTimeout(timer);clearStep();
+ try{speechSynthesis.cancel()}catch(e){}
+ speaking=false;sayId++; // drop in-flight TTS callbacks
+ setPausedUI(true);
+ say('Okay, pausing. Press Resume when you are ready.');
+}
+function doResume(){
+ if(!paused)return;
+ paused=false;setPausedUI(false);
+ keepAwake();
+ if(!list){say("Okay, let's keep going.");armCheck();listen();return}
+ // Same step index: re-arm timers / hold / shower loop; silent breakfast stays quiet
+ if(isSilent(cur())){show();listen();return}
+ runStep("Okay, let's keep going.");
+}
 function handle(t){resetCheck();
  if(/\b(stop|quit|exit|end)\b/.test(t))return stop();
- if(paused){if(/\b(resume|continue|start|go|ready|unpause)\b/.test(t)){paused=false;if(list)runStep("Okay, let's keep going.");else{say("Okay, let's keep going.");armCheck()}}return}
+ if(paused){if(/\b(resume|continue|unpause)\b/.test(t)||t==='resume')return doResume();return} // voice resume is bonus only; UI is primary
  if(!list){if(typeof ROUTINE!=="undefined")return;const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
  if(/\b(repeat|again|what)\b/.test(t)){if(isSilent(cur()))return;return say('Your step is: '+stepVoice(cur()))}
  if(/\bhelp\b/.test(t)){if(isSilent(cur()))return;return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()))}
- if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
+ if(/\b(pause|break|wait)\b/.test(t))return doPause();
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
 function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
@@ -207,7 +232,8 @@ function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;if(isSilent(cur())||isOnce(cur()))return;timer=setTimeout(()=>{checks++;
  if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)))}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
-function stop(){active=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}
+function stop(){active=false;paused=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}
+ setPausedUI(false);
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
  setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
 async function keepAwake(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen')}catch(e){}}
