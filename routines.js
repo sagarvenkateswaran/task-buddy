@@ -47,7 +47,9 @@ const LISTS={
   {text:"Add detergent.",days:[0]},
   {text:"Turn on the washer.",days:[0]},
   // once: speak step once, no check-in repeats. silent: screen only until Done (no TTS/nudges). Quiet until after breakfast.
-  {text:"Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",once:true},
+  // Sunday: phone already taken for laundry; other days keep phone cue on this step
+  {text:"Go downstairs and do 7 Swami Namaskarams.",once:true,days:[0]},
+  {text:"Go downstairs and do 7 Swami Namaskarams. Take your phone with you.",once:true,days:[1,2,3,4,5,6]},
   {text:"Eat breakfast.",silent:true},
   {text:"Put the plates in the sink.",days:[0,6]},
   {text:"Pick up your vitamins in your hand, put them in your mouth, and swallow them with some water, and then press Done.",days:[0,6]},  // weekend
