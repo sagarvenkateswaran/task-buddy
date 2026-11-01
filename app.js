@@ -23,12 +23,31 @@ function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening 
   if(e.error==='not-allowed'||e.error==='service-not-allowed'){active=false;$('status').innerHTML='<span class=off>Microphone blocked ('+e.error+'). Open in Safari, allow mic + Siri/Dictation, reload.</span>'}};
  rec.onend=()=>{listening=false;if(active&&!speaking)setTimeout(listen,lastErr==='no-speech'||!lastErr?150:600);lastErr=null}; // auto-restart
 }
-let TEMP;  // undefined=loading/failed
+let TEMP;  // undefined=loading/failed (nullish means use fallback rules)
 function weatherText(){if(TEMP==null)return "Check the weather. If it's cold, wear a jacket.";const n=Math.round(TEMP);
  return n<50?`It's cold outside, about ${n} degrees. Wear your winter jacket.`:`It's about ${n} degrees outside. Make sure you are wearing a light jacket.`}
-function getWeather(){if(typeof WEATHER_URL==='undefined')return;const c=new AbortController();setTimeout(()=>c.abort(),5000);
- fetch(WEATHER_URL,{signal:c.signal}).then(r=>r.json()).then(d=>{TEMP=d.current.temperature_2m;
-  if(TEMP>=65&&list){const s=LISTS[list],w=s.findIndex(x=>x&&x.weather);if(w>i){s.splice(w,1);bar()}}}).catch(()=>{})}
+// tempBelow steps: include when TEMP < threshold. If fetch failed/pending: light (<60) always; heavy (<40) only Nov–Mar.
+function tempStepOk(x){if(!x||x.tempBelow==null)return true;const thr=x.tempBelow;
+ if(TEMP==null){if(thr<=40){const m=new Date().getMonth();return m>=10||m<=2}return true}
+ return TEMP<thr}
+function dropUpcomingWeatherSteps(){if(!list)return;const s=LISTS[list];let changed=false;
+ for(let j=s.length-1;j>i;j--){const x=s[j];if(!x||typeof x!=='object')continue;
+  if(x.weather&&TEMP!=null&&TEMP>=65){s.splice(j,1);changed=true;continue}
+  if(x.tempBelow!=null&&!tempStepOk(x)){s.splice(j,1);changed=true}}
+ if(changed)bar()}
+function weatherUrlFor(lat,lon){return `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&temperature_unit=fahrenheit`}
+function resolveWeatherUrl(){const fallback=(typeof WEATHER_URL!=='undefined')?WEATHER_URL:weatherUrlFor(40.1773,-75.0377);
+ return new Promise(res=>{if(!navigator.geolocation)return res(fallback);
+  let done=false;const fin=u=>{if(done)return;done=true;res(u)};
+  setTimeout(()=>fin(fallback),4000);
+  try{navigator.geolocation.getCurrentPosition(
+   p=>fin(weatherUrlFor(p.coords.latitude,p.coords.longitude)),
+   ()=>fin(fallback),
+   {enableHighAccuracy:false,timeout:3500,maximumAge:600000})}catch(e){fin(fallback)}})}
+function getWeather(){if(typeof WEATHER_URL==='undefined'&&typeof WEATHER_FALLBACK_LAT==='undefined')return;
+ resolveWeatherUrl().then(url=>{const c=new AbortController();setTimeout(()=>c.abort(),5000);
+  fetch(url,{signal:c.signal}).then(r=>r.json()).then(d=>{TEMP=d.current.temperature_2m;dropUpcomingWeatherSteps()}).catch(()=>{})})
+}
 const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 
 // ---------- Shower water listen (morning only): AnalyserNode loudness, no recording ----------
@@ -165,7 +184,9 @@ function handle(t){resetCheck();
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
 function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
- LISTS[k]=ORIG[k].filter(x=>!(x&&x.days&&!x.days.includes(d))&&!(x&&x.weather&&TEMP>=65));list=k;i=0;$('list').textContent=k;show();
+ LISTS[k]=ORIG[k].filter(x=>{if(x&&x.days&&!x.days.includes(d))return false;
+  if(x&&x.weather&&TEMP!=null&&TEMP>=65)return false;
+  if(x&&x.tempBelow!=null&&!tempStepOk(x))return false;return true});list=k;i=0;$('list').textContent=k;show();
  const nm=(($('kidname')&&$('kidname').value)||'').trim();try{localStorage.kidName=nm}catch(e){}
  const g=k==='bedtime routine'?"Hi"+(nm?' '+nm:'')+". It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning"+(nm?', '+nm:'')+"! Let's get ready for the day. Take a moment.";
  say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
