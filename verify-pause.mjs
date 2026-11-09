@@ -11,7 +11,7 @@ assert(/id="resumeBtn"/.test(htmlM), 'morning has resumeBtn');
 assert(/id="resumeBtn"/.test(htmlB), 'bedtime has resumeBtn');
 assert(/data-c="resume"/.test(htmlM) && /data-c="resume"/.test(htmlB), 'resume data-c on both');
 assert(/#resumeBtn\{display:none/.test(htmlM) && /#resumeBtn\{display:none/.test(htmlB), 'resume hidden by default');
-assert(/v=20261109a/.test(htmlM) && /v=20261109a/.test(htmlB), 'cache-bust bumped');
+assert(/v=20261109b/.test(htmlM) && /v=20261109b/.test(htmlB), 'cache-bust bumped');
 
 assert(/function doPause\(/.test(app), 'doPause exists');
 assert(/function doResume\(/.test(app), 'doResume exists');

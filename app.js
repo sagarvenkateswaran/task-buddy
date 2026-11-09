@@ -168,7 +168,7 @@ function setPausedUI(on){
 }
 function doPause(){
  if(!active||paused)return;
- paused=true;clearTimeout(timer);clearStep();
+ paused=true;clearTimeout(timer);clearStep();if(HAS_ADAPT)Adapt.pause();
  try{speechSynthesis.cancel()}catch(e){}
  speaking=false;sayId++; // drop in-flight TTS callbacks
  setPausedUI(true);
@@ -176,7 +176,7 @@ function doPause(){
 }
 function doResume(){
  if(!paused)return;
- paused=false;setPausedUI(false);
+ paused=false;setPausedUI(false);if(HAS_ADAPT)Adapt.resume();
  keepAwake();
  if(!list){say("Okay, let's keep going.");armCheck();listen();return}
  // Same step index: re-arm timers / hold / shower loop; silent breakfast stays quiet
@@ -189,6 +189,7 @@ function handle(t){resetCheck();
  if(!list){if(typeof ROUTINE!=="undefined")return;const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
  if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t)){if(inShower(cur()))return; // no Done inside the shower
+  if(HAS_ADAPT&&adaptable(cur()))Adapt.done();else if(HAS_ADAPT)Adapt.abandon();
   return next()}
  if(/\b(repeat|again|what)\b/.test(t)){if(isSilent(cur()))return;return say('Your step is: '+stepVoice(cur()))}
  if(/\bhelp\b/.test(t)){if(isSilent(cur()))return;if(inShower(cur()))return say('The shower steps go by themselves. Your step now is: '+stepVoice(cur()));return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()))}
@@ -202,7 +203,14 @@ function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  const nm=(($('kidname')&&$('kidname').value)||'').trim();try{localStorage.kidName=nm}catch(e){}
  const g=k==='bedtime routine'?"Hi"+(nm?' '+nm:'')+". It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning"+(nm?', '+nm:'')+"! Let's get ready for the day. Take a moment.";
  say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
-function show(){$('step').textContent=stepLabel(cur());bar();showerUI()}
+function show(){$('step').textContent=stepLabel(cur());bar();showerUI();adaptStart()}
+// ---------- Adaptive reminder timing (adapt.js): learns from time-to-Done on ordinary Done steps only ----------
+// Excluded: shower steps (fixed timed reminders, no Done) and the shower exit, silent, once-only, timed/auto and hold steps.
+const HAS_ADAPT=typeof Adapt!=='undefined';
+function adaptable(x){return !!(list&&x&&!showerOf(x)&&!isSilent(x)&&!isOnce(x)&&!(typeof x==='object'&&(x.wait||x.hold||x.pre||x.auto)))}
+function adaptKey(){return LISTS[list]&&Adapt.stepKey(LISTS[list],i,y=>typeof y==='object'&&y.weather?'__weather__':T(y))}
+function adaptStart(){if(!HAS_ADAPT)return;if(!list||!LISTS[list])return Adapt.abandon();if(adaptable(cur()))Adapt.start('vs:'+list,adaptKey(),CHECKIN_MS);else Adapt.abandon()}
+function checkMs(){return HAS_ADAPT&&list&&LISTS[list]&&adaptable(cur())?Adapt.interval('vs:'+list,adaptKey(),CHECKIN_MS):CHECKIN_MS}
 function showerUI(){const d=document.querySelector('[data-c="done"]'),on=!!(list&&inShower(cur()));
  if(d){d.disabled=on;d.style.opacity=on?'.35':''}
  if(paused)return;const st=$('status');
@@ -223,8 +231,8 @@ function next(){const prev=cur();clearStep();
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;if(isSilent(cur())||isOnce(cur()))return;timer=setTimeout(()=>{checks++;
  if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)))}
- else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
-function stop(){active=false;paused=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}
+ else say('Which list would you like to do? Say '+names()+'.');armCheck()},checkMs())}
+function stop(){if(HAS_ADAPT){Adapt.abandon();Adapt.resume()}active=false;paused=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}
  setPausedUI(false);
  say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
  setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
@@ -264,4 +272,5 @@ document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.
 
 try{const n=$('kidname');if(n&&localStorage.kidName)n.value=localStorage.kidName}catch(e){}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active)keepAwake()});
+document.addEventListener('visibilitychange',()=>{if(HAS_ADAPT)Adapt.hidden(document.visibilityState==='hidden')}); // time outside the app is not learned
 try{const m=$('mode');if(m){m.value=localStorage.mode||'touch';m.onchange=()=>{localStorage.mode=m.value}}}catch(e){}
