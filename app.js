@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
 const VOICE=()=>{try{return localStorage.mode==='voice'}catch(e){return false}};
 function say(t,cb,_r){if(VOICE())t=t.replace(/press Done/gi,'say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.volume=1;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
  let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
  setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
  u.onend=fin;
@@ -52,11 +52,13 @@ const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 
 // ---------- Shower water listen (morning only): AnalyserNode loudness, no recording ----------
 // Thresholds: calibrate ambient ~3.5s; water = 1–8 kHz band energy ≥ max(ambient*2.2, ambient+0.012) for 3s;
-// water-off = below that for 25s. Enter waits for water or 3min fallback.
+// water-off = below that for 25s.
+// SAFETY: the mic is ADVISORY ONLY. Shower steps always run their full timed schedule; water on/off never skips,
+// shortens, or jumps to drying. The only thing the mic can do is add extra "turn the water off" reminders.
 const Water={
   ok:false,perm:false,active:false,water:false,calibrating:false,ambient:0,
   stream:null,ctx:null,analyser:null,src:null,_raf:0,_cal:[],_above:0,_below:0,_onAt:0,
-  CAL_MS:3500,ON_MS:3000,OFF_MS:25000,ENTER_FALLBACK:180000,BAND_LO:1000,BAND_HI:8000,MARGIN:2.2,FLOOR:0.012,
+  CAL_MS:3500,ON_MS:3000,OFF_MS:25000,BAND_LO:1000,BAND_HI:8000,MARGIN:2.2,FLOOR:0.012,
   cue(msg){const el=$('showerCue');if(!el)return;el.style.display=msg?'block':'none';el.textContent=msg||''},
   async unlock(){ // call from Start tap (iOS gesture)
     try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();await this.ctx.resume()}catch(e){this.ctx=null}
@@ -107,31 +109,22 @@ const Water={
   exitIndex(){if(!list)return -1;return LISTS[list].findIndex(x=>x&&x.shower==='exit')}
 };
 function showerOf(x){return x&&typeof x==='object'?x.shower:null}
+// In-shower = phone is outside, so no Done press and no "press Done" prompts. Exit (out of the shower) is where Done comes back.
+const IN_SHOWER=['enter','in','off','loop'];
+function inShower(x){return IN_SHOWER.includes(showerOf(x))}
 function isSilent(x){return !!(x&&typeof x==='object'&&x.silent)}
 function isOnce(x){return !!(x&&typeof x==='object'&&x.once)}
-function showerLoopBounds(){if(!list)return[-1,-1];const s=LISTS[list];let a=-1,b=-1;
-  for(let j=0;j<s.length;j++){if(s[j]&&s[j].shower==='loop'){if(a<0)a=j;b=j}}return[a,b]}
-function jumpToShowerExit(why){
-  if(!list)return;const ex=Water.exitIndex();if(ex<0||i>ex)return;
-  if(i===ex)return; // already on exit
-  clearStep();i=ex;show();runStep('');
-}
-function jumpToShowerLoopStart(){
-  const[a]=showerLoopBounds();if(a<0)return next();
-  clearStep();i=a;show();runStep('');
-}
-function onWaterOn(){ // enter step may be waiting
+// Water mic callbacks: advisory only (screen cue). They never change the step.
+function onWaterOn(){
   if(paused)return;
-  const x=cur();if(showerOf(x)==='enter'&&Water._enterWaiting){Water._enterWaiting=false;clearStep();next()}
 }
 function onWaterOff(){
   if(paused)return;
-  const x=cur(),sh=showerOf(x);
-  if(sh==='enter'||sh==='loop')jumpToShowerExit('quiet');
 }
+const OFF_EXTRA=4,OFF_EXTRA_GAP=15000; // extra "turn off" reminders when the mic still hears water (then exit anyway)
 
 const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
-const needsDone=x=>!(typeof x==='object'&&x.auto===true)&&!/done/i.test(T(x))&&!/\?\s*$/.test(T(x));
+const needsDone=x=>!inShower(x)&&!(typeof x==='object'&&x.auto===true)&&!/done/i.test(T(x))&&!/\?\s*$/.test(T(x));
 const withDone=(t,x)=>{const b=String(t).replace(/[.!?]+$/,'');return needsDone(x)?b+', and then press Done.':P_(String(t))};
 const stepVoice=x=>withDone(x.speak||T(x),x), stepLabel=x=>withDone(T(x),x);
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
@@ -144,22 +137,13 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
   if(typeof x==='string'||!x.wait){if(isOnce(x)||isSilent(x))return;return armCheck()}
   const hints=(typeof x==='object'&&x.hints)||[];
   const sayHint=n=>{const h=hints.length?hints[(n-2+hints.length*10)%hints.length]:null;return P_(h||x.speak||T(x))};
-  // enter + water mic: wait for water (or 3min fallback); keep nudging
-  if(sh==='enter'&&Water.ok){
-   Water._enterWaiting=true;let n=1;
-   const nudge=()=>{if(i!==me||!Water._enterWaiting)return;n++;later(x.gap||15000,()=>{if(i!==me||!Water._enterWaiting)return;say(sayHint(n),nudge)})};
-   nudge();later(Water.ENTER_FALLBACK,()=>{if(i===me&&Water._enterWaiting){Water._enterWaiting=false;next()}});
-   return}
-  // timed loop (soap→rinse→face→toff): while water on, advance/wrap; water off → exit. No mic: run once then next into exit.
+  // Timed steps (incl. every in-shower step): repeat reminders, then advance. The water mic never skips or shortens this.
   let n=1;
   const afterTimed=()=>{if(i!==me)return;
-   if(sh==='loop'&&Water.ok){
-    if(!Water.water)return jumpToShowerExit('quiet');
-    const[,b]=showerLoopBounds();
-    if(i<b)return next(); // next loop step
-    return jumpToShowerLoopStart(); // wrap soap→…→toff→soap
-   }
-   next()}; // fallback / non-loop timed
+   // Advisory: still hearing water after "Turn off the shower" → a few extra loud reminders, then go to the exit step anyway.
+   if(sh==='off'&&Water.ok&&Water.water&&extra<OFF_EXTRA){extra++;return say(P_(hints[0]||T(x)),()=>later(OFF_EXTRA_GAP,afterTimed))}
+   next()};
+  let extra=0;
   const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i!==me)return;say(sayHint(n),rep)})}
    else later(x.wait,afterTimed)};rep()};
  if(isSilent(x)){if(first)firstDone=true;return}
@@ -168,8 +152,10 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
  if(sh==='enter'&&typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
   keepAwake();Water.start().then(()=>{
    // Finish ambient calibration (fan) before TTS so speaker audio isn't in the baseline
-   const waitCal=()=>{if(i!==me)return;if(!Water.ok||!Water.calibrating)return beginSay();setTimeout(waitCal,200)};
-   waitCal()});return}
+   // Safety: never let calibration hold up the spoken shower reminders (start after 5s at most).
+   let began=false;const go=()=>{if(began||i!==me)return;began=true;beginSay()};
+   const waitCal=()=>{if(began||i!==me)return;if(!Water.ok||!Water.calibrating)return go();setTimeout(waitCal,200)};
+   setTimeout(go,5000);waitCal()},()=>{if(i===me)beginSay()});return}
  beginSay()}
 function names(){return Object.keys(LISTS).join(', ')}
 function ask(){if(typeof ROUTINE!=='undefined')return begin(ROUTINE);clearStep();list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
@@ -195,16 +181,17 @@ function doResume(){
  if(!list){say("Okay, let's keep going.");armCheck();listen();return}
  // Same step index: re-arm timers / hold / shower loop; silent breakfast stays quiet
  if(isSilent(cur())){show();listen();return}
- runStep("Okay, let's keep going.");
+ showerUI();runStep("Okay, let's keep going.");
 }
 function handle(t){resetCheck();
  if(/\b(stop|quit|exit|end)\b/.test(t))return stop();
  if(paused){if(/\b(resume|continue|unpause)\b/.test(t)||t==='resume')return doResume();return} // voice resume is bonus only; UI is primary
  if(!list){if(typeof ROUTINE!=="undefined")return;const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
   if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
- if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t))return next();
+ if(/\b(done|finished|finish|next|did it|complete|ok next|fine|yes|yeah|ok|okay)\b/.test(t)){if(inShower(cur()))return; // no Done inside the shower
+  return next()}
  if(/\b(repeat|again|what)\b/.test(t)){if(isSilent(cur()))return;return say('Your step is: '+stepVoice(cur()))}
- if(/\bhelp\b/.test(t)){if(isSilent(cur()))return;return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()))}
+ if(/\bhelp\b/.test(t)){if(isSilent(cur()))return;if(inShower(cur()))return say('The shower steps go by themselves. Your step now is: '+stepVoice(cur()));return say('Press Done when you finish a step. Press Repeat to hear it again. Your step now is: '+stepVoice(cur()))}
  if(/\b(pause|break|wait)\b/.test(t))return doPause();
  if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
 }
@@ -215,7 +202,12 @@ function begin(k){ORIG[k]=ORIG[k]||LISTS[k];const d=new Date().getDay();
  const nm=(($('kidname')&&$('kidname').value)||'').trim();try{localStorage.kidName=nm}catch(e){}
  const g=k==='bedtime routine'?"Hi"+(nm?' '+nm:'')+". It's time to get ready for bed. Take a deep breath. We'll go nice and slow.":"Good morning"+(nm?', '+nm:'')+"! Let's get ready for the day. Take a moment.";
  say(g,()=>setTimeout(()=>{if(list===k&&i===0)runStep("Here's your first step.")},4000))}
-function show(){$('step').textContent=stepLabel(cur());bar()}
+function show(){$('step').textContent=stepLabel(cur());bar();showerUI()}
+function showerUI(){const d=document.querySelector('[data-c="done"]'),on=!!(list&&inShower(cur()));
+ if(d){d.disabled=on;d.style.opacity=on?'.35':''}
+ if(paused)return;const st=$('status');
+ if(on)st.innerHTML='<span class=off>🚿 Shower steps are timed. Leave the phone outside. Done comes back when you are out.</span>';
+ else if(st&&/🚿/.test(st.textContent))st.innerHTML='<span class=off>Press Done when you finish each step.</span>'}
 function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
 function next(){const prev=cur();clearStep();
  // Leaving shower exit (Done) → release water mic
@@ -251,8 +243,8 @@ $('start').onclick=async()=>{
  if(typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
   $('step').textContent='🎤 Allow the microphone';$('status').innerHTML='<span class=off>Needed to hear the shower water (not for talking). Tap Allow…</span>';
   await Water.unlock();
-  if(!Water.perm)$('status').innerHTML='<span class=off>Mic off — shower will use timers only. Press Done when you finish each step.</span>';
-  else $('status').innerHTML='<span class=off>Press Done when you finish each step. Shower mic ready.</span>';
+  if(!Water.perm)$('status').innerHTML='<span class=off>Mic off — shower steps use timers. Press Done when you finish each step outside the shower.</span>';
+  else $('status').innerHTML='<span class=off>Press Done when you finish each step outside the shower. Shower steps are timed.</span>';
  }
  if(!VOICE()){if(!Water.perm||ROUTINE!=='morning routine')$('status').innerHTML=$('status').innerHTML||'<span class=off>Press Done when you finish each step.</span>';active=true;paused=false;keepAwake();return ask()}
  if(SR&&!rec)setup();

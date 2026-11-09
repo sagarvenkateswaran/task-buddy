@@ -1,123 +1,17 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Step Helper</title>
 <style>
 body{font-family:system-ui,sans-serif;margin:0;background:#10233d;color:#fff;text-align:center}
-#start{font-size:2.2rem;padding:2rem 3rem;margin-top:30vh;border-radius:1.5rem;border:0;background:#2ecc71;color:#fff}
-#app{display:none;padding:1rem}
-#list{font-size:1.3rem;opacity:.8}#step{font-size:2.4rem;margin:2rem 0;min-height:6rem}
-#prog{height:1.4rem;background:#334;border-radius:1rem;overflow:hidden}#bar{height:100%;width:0;background:#2ecc71;transition:.4s}
-#status{margin-top:1rem;font-size:1.1rem}.mic{color:#2ecc71}.off{color:#e67e22}
-.b button{font-size:1.1rem;margin:.3rem;padding:.7rem 1rem;border-radius:.7rem;border:0}
-#heard{opacity:.6;font-size:.9rem;margin-top:.5rem}
+h1{margin-top:18vh;font-size:2rem}
+a{display:block;font-size:2.2rem;padding:1.6rem 2rem;margin:1.2rem auto;max-width:20rem;border-radius:1.5rem;text-decoration:none;color:#fff}
+.m{background:#f39c12}.b{background:#2c3e8f}
+p{opacity:.75;padding:0 1rem}
 </style></head><body>
-<button id="start">▶ Tap to Start</button>
-<div id="app">
- <div id="list"></div><div id="step">Say a list name</div>
- <div id="prog"><div id="bar"></div></div><div id="count"></div>
- <div id="status"></div><div id="heard"></div>
- <div class="b"><small>Backup buttons:</small><br>
-  <button data-c="done">Done</button><button data-c="repeat">Repeat</button>
-  <button data-c="help">Help</button><button data-c="pause">Pause</button>
-  <button data-c="stop">Stop</button></div>
-</div>
-<script>
-// ---- Edit task lists here ----
-const LISTS={
- // Step formats: "text" = wait for done.  {text, wait:ms, auto:true} = speak, auto-advance after wait (done skips ahead).
- // {text, wait:ms, auto:'orDone'} = advance on done OR after wait.  Optional: pre:ms (silent wait before speaking), repeat:n, gap:ms (between repeats).
- "morning routine":[
-  "Wipe yourself and flush",
-  "Wash your hands with soap",
-  "Get into the shower. Say done when you're in.",
-  {text:"Put soap on your body",pre:120000,repeat:3,gap:20000,wait:120000,auto:true},
-  {text:"Wash your face",wait:120000,auto:true},
-  {text:"Turn off the shower",wait:120000,auto:true},
-  {text:"Put on deodorant",wait:120000,auto:'orDone'},
-  "Grab your phone before you leave the bathroom.",
-  "Make sure you are wearing your towel before you come out of the bathroom.",
-  "Put your shirt on",
-  "Put your underwear on",
-  "Put your pants on",
-  "Hang the towel back on the bathroom rack",
-  "Put on your socks",
-  "Put on your jacket",
-  "Comb your hair",
-  "Go downstairs for breakfast"],
- "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
-  {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
-  {text:"Put it in.",wait:60000,auto:'orDone'},
-  {text:"Flush.",wait:60000,auto:'orDone'},
-  "Wash your hands.",
-  {text:"Brush your teeth.",wait:120000,auto:'orDone'},
-  {text:"Rinse your mouth.",wait:30000,auto:'orDone'},
-  {text:"Wash your hands.",wait:30000,auto:'orDone'},
-  {text:"Go to bed. Good night!",wait:15000,auto:'orDone'}],
- "make a sandwich":["Wash your hands","Get two slices of bread","Spread the butter","Add the filling","Put the slices together","Put things back in the fridge"],
- "laundry":["Put clothes in the washer","Add one scoop of detergent","Close the door and press start","When it beeps, move clothes to the dryer","Fold your clothes"]
-};
-const CHECKIN_MS=150000, CALM=["Good.","Nice and easy.","Well done.","Lovely."], PRAISE=["Great job!","Well done!","Awesome!","Nice work!","You're doing great!","Fantastic!"];
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-let stepT=[],rec,listening=false,speaking=false,paused=false,active=false,list=null,i=0,timer,checks=0,wake;
-const $=id=>document.getElementById(id);
-function say(t,cb){speaking=true;try{rec&&rec.abort()}catch(e){}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;
- u.onend=u.onerror=()=>{speaking=false;cb&&cb();listen()};speechSynthesis.speak(u);}
-function listen(){if(!SR||speaking||listening||!active)return;
- try{rec.start();listening=true}catch(e){}}
-function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
- rec=new SR();rec.lang='en-US';rec.continuous=true;rec.interimResults=false;
- rec.onstart=()=>$('status').innerHTML='<span class=mic>🎤 Listening…</span>';
- rec.onresult=e=>{const t=e.results[e.results.length-1][0].transcript.toLowerCase().trim();$('heard').textContent='Heard: "'+t+'"';handle(t)};
- rec.onerror=e=>{if(e.error==='not-allowed'){active=false;$('status').innerHTML='<span class=off>Microphone blocked. Allow mic access and reload.</span>'}};
- rec.onend=()=>{listening=false;if(active&&!speaking)setTimeout(listen,300)}; // auto-restart
-}
-const T=x=>typeof x==='string'?x:x.text, cur=()=>LISTS[list][i], timed=()=>list&&cur()&&typeof cur()==='object'&&cur().wait;
-const sfx=x=>(typeof x==='object'&&x.auto===true)?'':(/say done/i.test(T(x))?'':" Say done when you're finished.");
-function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
-function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
-function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro)say(intro);later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
-function speakStep(intro){const x=cur(),me=i;say(intro+(x.speak||T(x)).replace(/[.!?]$/,'')+'.'+sfx(x),()=>{if(i!==me||!list)return;
- if(typeof x==='string'||!x.wait)return armCheck();
- let n=1;const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i===me)say(T(x)+'.',rep)})}else later(x.wait,()=>{if(i===me)next()})};rep()})}
-function names(){return Object.keys(LISTS).join(', ')}
-function ask(){clearStep();list=null;$('list').textContent='';$('step').textContent='Say: '+names();bar();
- say('Which list would you like to do? You can say '+names()+'.');armCheck()}
-function handle(t){resetCheck();
- if(/\b(stop|quit|exit|end)\b/.test(t))return stop();
- if(paused){if(/\b(resume|continue|start|go|ready|unpause)\b/.test(t)){paused=false;if(list)runStep("Okay, let's keep going.");else{say("Okay, let's keep going.");armCheck()}}return}
- if(!list){const k=Object.keys(LISTS).find(n=>t.includes(n)||t.includes(n.split(' ')[0]));
-  if(k)return begin(k); if(/\b(list|menu|options|help)\b/.test(t))return ask(); return}
- if(/\b(done|finished|finish|next|did it|complete|ok next)\b/.test(t))return next();
- if(/\b(repeat|again|what)\b/.test(t))return say('Your step is: '+T(cur()));
- if(/\bhelp\b/.test(t))return say('Say done when you finish a step. Say repeat to hear it again, pause to take a break, or stop to end. Your step now is: '+T(cur()));
- if(/\b(pause|break|wait)\b/.test(t)){paused=true;clearTimeout(timer);clearStep();$('status').innerHTML='<span class=off>⏸ Paused — say "resume"</span>';return say('Okay, pausing. Say resume when you are ready.')}
- if(/\b(back|previous)\b/.test(t)){i=Math.max(0,i-1);show();return runStep('Going back.')}
- if(/\b(new list|change list|menu)\b/.test(t))return ask();
-}
-function begin(k){list=k;i=0;$('list').textContent=k;show();
- runStep("Let's do your "+k+". There are "+LISTS[k].length+" steps. Step one:")}
-function show(){$('step').textContent=T(cur());bar()}
-function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width=(d/n*100)+'%';$('count').textContent=list?`Step ${i+1} of ${n}`:''}
-function next(){clearStep();const s=LISTS[list],calm=list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
- if(i>=s.length&&calm){$('bar').style.width='100%';$('step').textContent='🌙 Good night';list=null;
-  return say("You did everything. I'm proud of you. Snuggle in, close your eyes, and sleep well. Good night.",()=>{active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){};wake&&wake.release()})}
- if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
-  return say(p+' You finished your whole '+k+'! I am proud of you. Say another list name if you want to do more, or say stop.',armCheck)}
- show();const left=s.length-i;
- runStep(`${p} That's ${i} done, ${left} to go.`+(typeof s[i]==='object'&&s[i].pre?'':' Next step:'))}
-function resetCheck(){clearTimeout(timer);checks=0}
-function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;timer=setTimeout(()=>{checks++;
- if(list)say(checks<3?`How's it going with: ${T(cur()).toLowerCase().replace(/[.!?]$/,"")}? Say done when you're finished, or help if you need it.`:`I'm still here. Your step is: ${T(cur()).toLowerCase().replace(/[.!?]$/,"")}. Say done when you're ready.`);
- else say('Which list would you like to do? Say '+names()+'.');armCheck()},CHECKIN_MS)}
-function stop(){active=false;clearTimeout(timer);clearStep();try{rec&&rec.abort()}catch(e){}
- say('Okay, stopping. Great work today. Tap start whenever you want to go again.');
- setTimeout(()=>{$('app').style.display='none';$('start').style.display='inline-block'},500);wake&&wake.release()}
-async function keepAwake(){try{if('wakeLock' in navigator)wake=await navigator.wakeLock.request('screen')}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&active){keepAwake();listen()}});
-$('start').onclick=async()=>{$('start').style.display='none';$('app').style.display='block';active=true;paused=false;
- try{const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}catch(e){}
- keepAwake();if(!rec)setup();ask()};
-document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>handle(b.dataset.c==='done'?(list?'done':'morning routine'):b.dataset.c));
-</script></body></html>
+<!-- The old all-in-one page (with its own outdated shower steps) is retired. Morning and Bedtime share one engine
+     (app.js + routines.js), so the shower safety rules live in one place. -->
+<h1>Step Helper</h1>
+<a class="m" href="morning/">☀️ Morning</a>
+<a class="b" href="bedtime/">🌙 Bedtime</a>
+<p>Add Morning or Bedtime to your Home Screen from its own page.</p>
+</body></html>
