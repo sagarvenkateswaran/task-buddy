@@ -157,8 +157,8 @@ const Chime={els:{},last:'',
   unlock(){Object.keys(this.SOUNDS).forEach(k=>{try{const a=this.el(k);a.muted=true;const p=a.play();p&&p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})}catch(e){}})},
   play(kind,vol){try{const a=this.el(kind);a.muted=false;a.volume=vol!=null?vol:(list==='bedtime routine'?0.7:1);a.currentTime=0;const p=a.play();p&&p.catch(()=>{})}catch(e){}},
   // Nag mode: a different sound than last time, at a random volume (35–100%), so it never becomes background noise
-  random(dad){const ks=(dad?['strong','drum','whistle','boing']:['soft','ding','bell']).filter(k=>k!==this.last);const k=ks[Math.floor(Math.random()*ks.length)];this.last=k;
-    this.play(k,dad?0.7+Math.random()*0.3:0.35+Math.random()*0.4)}
+  random(st){const calm=st==='momCalm'||st==='dadCalm',ks=(calm?['soft','ding','bell']:['strong','drum','whistle','boing','ding']).filter(k=>k!==this.last);const k=ks[Math.floor(Math.random()*ks.length)];this.last=k;
+    const vol={momCalm:[0.35,0.6],momUpset:[0.55,0.8],momTell:[0.75,1],dadCalm:[0.5,0.75],dadFirm:[0.7,0.9],dadMax:[0.85,1]}[st]||[0.35,1];this.play(k,vol[0]+Math.random()*(vol[1]-vol[0]))}
 };
 let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
@@ -170,16 +170,16 @@ const DAD_AFTER=4,MOM_V=['Samantha','Nicky','Ava','Allison','Susan','Karen','Tes
  DAD_V=['Aaron','Fred','Alex','Tom','Daniel','Arthur','Oliver','Gordon','Rishi','David','Mark','Google UK English Male'];
 function pickVoice(names){try{const vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
  for(const n of names){const v=vs.find(v=>v.name.toLowerCase().includes(n.toLowerCase()));if(v)return v}}catch(e){}return null}
-function jolt(k){toneHigh=!toneHigh;const r=Math.random(),dad=k>DAD_AFTER;
- // Dad: stern and clipped — deep, a bit fast, small random wobble so it's never identical
- if(dad){const v=pickVoice(DAD_V); // no male voice installed → same voice, much deeper
-  nextTone={voice:v,pitch:(v?0.6:0.45)+r*0.25,rate:toneHigh?1.05+Math.random()*0.2:0.9+Math.random()*0.1};return}
- // Mom: calm and warm — soft, slightly slow, gentle random wobble
- nextTone={pitch:toneHigh?1.05+r*0.2:0.9+r*0.15,rate:0.8+Math.random()*0.12};
- const m=pickVoice(MOM_V);if(m)nextTone.voice=m}
+// Escalation by reminder count k: Mom calm (1–2) → Mom upset (3) → "I'm telling Daddy" (4) → Dad calm-stern (5–6) → firmer (7–8) → strongest (9+)
+function nagStage(k){return k<=2?'momCalm':k===3?'momUpset':k===4?'momTell':k<=6?'dadCalm':k<=8?'dadFirm':'dadMax'}
+const R_=(lo,hi)=>lo+Math.random()*(hi-lo);
+function jolt(k){const st=nagStage(k),dad=st.startsWith('dad'),v=pickVoice(dad?DAD_V:MOM_V),
+  T={momCalm:[1.0,1.15,0.8,0.9],momUpset:[1.2,1.4,1.0,1.1],momTell:[1.5,1.8,1.15,1.3],dadCalm:[0.75,0.85,0.8,0.88],dadFirm:[0.65,0.75,0.9,1.0],dadMax:[0.5,0.65,1.05,1.2]}[st];
+ const drop=dad&&!v?0.2:0; // no male voice installed → same voice, deeper
+ nextTone={voice:v,pitch:Math.max(0.1,R_(T[0],T[1])-drop),rate:R_(T[2],T[3])}}
 try{speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices()}catch(e){}
-function nudge(msg,n,nag,k){const at=i,l=list;if(nag)Chime.random((k||0)>DAD_AFTER);else Chime.play(n>=3?'strong':'soft');const nm=kidName();
- setTimeout(()=>{if(active&&!paused&&i===at&&list===l){if(nag)jolt(k||0);say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)}},1100)}
+function nudge(msg,n,nag,k){const at=i,l=list;if(nag)Chime.random(nagStage(k||1));else Chime.play(n>=3?'strong':'soft');const nm=kidName();
+ setTimeout(()=>{if(active&&!paused&&i===at&&list===l){if(nag)jolt(k||0);say(nm?nm+', '+(/^I\b/.test(msg)?msg:msg.charAt(0).toLowerCase()+msg.slice(1)):msg)}},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -200,13 +200,18 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    if((list==='bedtime routine'&&x.auto==='orDone')||x.nag){let k=0;const over=()=>{if(i!==me)return;k++;
      const lab=stepLabel(x).replace(/[.!?]$/,'').replace(/, and then press done$/i,'');
      const what=x.hardStop?(x.hardNext||'').replace(/[.!?]$/,''):lab,w=what.toLowerCase(),
-       dad=k>DAD_AFTER,
-       V=dad?[`${what}. Now.`,`I said, ${w}. Press done now.`,`Stop what you are doing. ${what}. Now.`,`I am not asking again. ${what}.`,`Enough. ${what}, right now.`,`Right now. ${what}. Press done.`]
-            :[`${what}, sweetie. Then press done.`,`Still on ${w}? Press done when you finish.`,`Let's ${w} now. Press done.`,`Gently, ${w}. Then press done.`,`Time to ${w}. Press done.`,`You can do it. ${what}, then press done.`];
-     let msg;if(k===DAD_AFTER+1)lastV=-1;if(x.hardStop&&k===1)msg=x.hardStop+' '+what+'. Press done.';else{let j;do{j=Math.floor(Math.random()*V.length)}while(V.length>1&&j===lastV);lastV=j;msg=V[j]}
-     if(k===DAD_AFTER+1)msg='Okay. I am stepping in now. '+msg; // Dad's first line
+       st=nagStage(k),
+       V={momCalm:[`${what}, sweetie. Then press done.`,`Still on ${w}? Press done when you finish.`,`Let's ${w} now. Press done.`,`Gently, ${w}. Then press done.`,`Time to ${w}. Press done.`,`You can do it. ${what}, then press done.`],
+          momUpset:[`I have asked you nicely. ${what}. Press done.`,`Come on, I am waiting. ${what}.`,`Please! ${what}, now. Press done.`,`Why are you not listening? ${what}.`],
+          momTell:[`That's it. I am telling Daddy now!`],
+          dadCalm:[`${what}. Press done.`,`Listen to me. ${what}. Press done.`,`I want you to ${w}. Press done.`],
+          dadFirm:[`I said, ${w}. Press done now.`,`${what}. Now.`,`Right now. ${what}. Press done.`,`Look at me. ${what}. Now.`],
+          dadMax:[`Stop what you are doing. ${what}. Now.`,`I am not asking again. ${what}.`,`Enough. ${what}, right now.`,`Now! ${what}. Press done.`]}[st];
+     let msg;if(st!==lastSt){lastV=-1;lastSt=st}
+     if(x.hardStop&&k===1)msg=x.hardStop+' '+what+'. Press done.';else{let j;do{j=Math.floor(Math.random()*V.length)}while(V.length>1&&j===lastV);lastV=j;msg=V[j]}
+     if(st==='dadCalm'&&k===DAD_AFTER+1)msg='Okay. I am stepping in now. '+msg; // Dad's first line
      nudge(msg,3,true,k);
-     later(OVERDUE_GAP-5000+Math.floor(Math.random()*10001),over)};let lastV=-1;return over()} // 10–20 s, random each time
+     later(OVERDUE_GAP-5000+Math.floor(Math.random()*10001),over)};let lastV=-1,lastSt='';return over()} // 10–20 s, random each time
    if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
   let extra=0;
