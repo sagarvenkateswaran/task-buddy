@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
 const VOICE=()=>{try{return localStorage.mode==='voice'}catch(e){return false}};
 function say(t,cb,_r){if(VOICE())t=t.replace(/press Done/gi,'say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.volume=1;u.lang='en-US';window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.volume=1;u.lang='en-US';if(nextTone){u.pitch=nextTone.pitch;u.rate=nextTone.rate;nextTone=null}window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
  let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
  setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
  u.onend=fin;
@@ -163,8 +163,12 @@ const Chime={els:{},last:'',
 let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
 const OVERDUE_GAP=15000;
+// Nag mode tone: each reminder flips between a high/fast and a low/slow voice (random within each), never the same twice
+let nextTone=null,toneHigh=false;
+function jolt(){toneHigh=!toneHigh;const r=Math.random();
+ nextTone=toneHigh?{pitch:1.3+r*0.6,rate:1.0+Math.random()*0.25}:{pitch:0.55+r*0.35,rate:0.75+Math.random()*0.15}}
 function nudge(msg,n,nag){const at=i,l=list;if(nag)Chime.random();else Chime.play(n>=3?'strong':'soft');const nm=kidName();
- setTimeout(()=>{if(active&&!paused&&i===at&&list===l)say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)},1100)}
+ setTimeout(()=>{if(active&&!paused&&i===at&&list===l){if(nag)jolt();say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)}},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
