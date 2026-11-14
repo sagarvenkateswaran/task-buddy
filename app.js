@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 let firstDone=false,sayId=0;
 const VOICE=()=>{try{return localStorage.mode==='voice'}catch(e){return false}};
 function say(t,cb,_r){if(VOICE())t=t.replace(/press Done/gi,'say I am done');speaking=true;const id=++sayId;try{rec&&rec.abort()}catch(e){}
- speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.volume=1;u.lang='en-US';if(nextTone){u.pitch=nextTone.pitch;u.rate=nextTone.rate;nextTone=null}window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
+ speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.rate=.9;u.volume=1;u.lang='en-US';if(nextTone){u.pitch=nextTone.pitch;u.rate=nextTone.rate;if(nextTone.voice)u.voice=nextTone.voice;nextTone=null}window._u=u; // keep ref (Chrome/Android can drop onend otherwise)
  let fired=false;const fin=()=>{if(fired||id!==sayId)return;fired=true;speaking=false;cb&&cb();listen()};
  setTimeout(fin,3000+t.split(/\s+/).length*600); // safety net if onend never fires (Android)
  u.onend=fin;
@@ -165,10 +165,19 @@ function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''
 const OVERDUE_GAP=15000;
 // Nag mode tone: each reminder flips between a high/fast and a low/slow voice (random within each), never the same twice
 let nextTone=null,toneHigh=false;
-function jolt(){toneHigh=!toneHigh;const r=Math.random();
- nextTone=toneHigh?{pitch:1.3+r*0.6,rate:1.0+Math.random()*0.25}:{pitch:0.55+r*0.35,rate:0.75+Math.random()*0.15}}
-function nudge(msg,n,nag){const at=i,l=list;if(nag)Chime.random();else Chime.play(n>=3?'strong':'soft');const nm=kidName();
- setTimeout(()=>{if(active&&!paused&&i===at&&list===l){if(nag)jolt();say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)}},1100)}
+// "Mom, then Dad": the first DAD_AFTER nag reminders on a step use a female voice; after that a deeper male voice takes over.
+const DAD_AFTER=4,MOM_V=['Samantha','Nicky','Ava','Allison','Susan','Karen','Tessa','Moira','Victoria','Zira','Google US English'],
+ DAD_V=['Aaron','Fred','Alex','Tom','Daniel','Arthur','Oliver','Gordon','Rishi','David','Mark','Google UK English Male'];
+function pickVoice(names){try{const vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+ for(const n of names){const v=vs.find(v=>v.name.toLowerCase().includes(n.toLowerCase()));if(v)return v}}catch(e){}return null}
+function jolt(k){toneHigh=!toneHigh;const r=Math.random(),dad=k>DAD_AFTER;
+ if(dad){const v=pickVoice(DAD_V); // no male voice installed → same voice, much deeper
+  nextTone={voice:v,pitch:(v?0.75:0.5)+r*0.3,rate:toneHigh?1.0+Math.random()*0.2:0.75+Math.random()*0.15};return}
+ nextTone=toneHigh?{pitch:1.3+r*0.6,rate:1.0+Math.random()*0.25}:{pitch:0.55+r*0.35,rate:0.75+Math.random()*0.15};
+ const m=pickVoice(MOM_V);if(m)nextTone.voice=m}
+try{speechSynthesis.getVoices();speechSynthesis.onvoiceschanged=()=>speechSynthesis.getVoices()}catch(e){}
+function nudge(msg,n,nag,k){const at=i,l=list;if(nag)Chime.random();else Chime.play(n>=3?'strong':'soft');const nm=kidName();
+ setTimeout(()=>{if(active&&!paused&&i===at&&list===l){if(nag)jolt(k||0);say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)}},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -191,7 +200,8 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
      const what=x.hardStop?(x.hardNext||'').replace(/[.!?]$/,''):lab,w=what.toLowerCase(),
        V=[`${what}. Press done.`,`Still on ${w}? Press done.`,`Hey! ${what}, then press done.`,`Come on, ${w}. Press done.`,`Right now: ${w}. Press done.`,`Don't forget, ${w}. Then press done.`,`Let's go. ${what}. Press done.`];
      let msg;if(x.hardStop&&k===1)msg=x.hardStop+' '+what+'. Press done.';else{let j;do{j=Math.floor(Math.random()*V.length)}while(V.length>1&&j===lastV);lastV=j;msg=V[j]}
-     nudge(msg,3,true);
+     if(k===DAD_AFTER+1)msg='Okay, I am stepping in now. '+msg; // Dad's first line
+     nudge(msg,3,true,k);
      later(OVERDUE_GAP-5000+Math.floor(Math.random()*10001),over)};let lastV=-1;return over()} // 10–20 s, random each time
    if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
