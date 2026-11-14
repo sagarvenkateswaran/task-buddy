@@ -60,7 +60,7 @@ const LISTS={
   {text:"Put on your heavy winter jacket, and then press Done.",tempBelow:40}],
  "bedtime routine":[   // calm:true list -> soft praise, soothing ending. speak: = pronunciation only
   "Turn on the light and the exhaust in the bathroom, and then press Done.",
-  {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone'},
+  {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone',hardStop:"Time's up."}, // hard stop at 2 min
   {text:"Put it in.",wait:60000,auto:'orDone'},
   {text:"Flush.",wait:60000,auto:'orDone'},
   "Wash your hands.",

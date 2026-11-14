@@ -148,6 +148,7 @@ const Chime={els:{},
   unlock(){['soft','strong'].forEach(k=>{try{const a=this.el(k);a.muted=true;const p=a.play();p&&p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})}catch(e){}})},
   play(kind){try{const a=this.el(kind);a.muted=false;a.volume=list==='bedtime routine'?0.7:1;a.currentTime=0;const p=a.play();p&&p.catch(()=>{})}catch(e){}}
 };
+let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
 function nudge(msg,n){Chime.play(n>=3?'strong':'soft');const nm=kidName();setTimeout(()=>{if(active&&!paused)say((nm?nm+', ':'')+msg)},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
@@ -165,6 +166,8 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
   const afterTimed=()=>{if(i!==me)return;
    // Advisory: still hearing water after "Turn off the shower" → a few extra loud reminders, then go to the exit step anyway.
    if(sh==='off'&&Water.ok&&Water.water&&extra<OFF_EXTRA){extra++;return say(P_(hints[0]||T(x)),()=>later(OFF_EXTRA_GAP,afterTimed))}
+   // Hard stop (e.g. moochcha): when time is up, a bright chime, then his name + "Time's up." leads into the next step
+   if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
   let extra=0;
   const rep=()=>{if(n<(x.repeat||1)){n++;later(x.gap||20000,()=>{if(i!==me)return;say(sayHint(n),rep)})}
@@ -243,7 +246,8 @@ function bar(){const n=list?LISTS[list].length:1,d=list?i:0;$('bar').style.width
 function next(){const prev=cur();clearStep();
  // Leaving shower exit (Done) → release water mic
  if(showerOf(prev)==='exit')Water.stop();
- const s=LISTS[list],calm=(typeof CALM_MODE!=='undefined'&&CALM_MODE)||list==='bedtime routine',P=calm?CALM:PRAISE,p=P[Math.floor(Math.random()*P.length)];i++;
+ const s=LISTS[list],calm=(typeof CALM_MODE!=='undefined'&&CALM_MODE)||list==='bedtime routine',P=calm?CALM:PRAISE;let p=P[Math.floor(Math.random()*P.length)];
+ if(hardNext&&prev&&prev.hardStop){const nm=kidName();p=nm?nm+', '+prev.hardStop.charAt(0).toLowerCase()+prev.hardStop.slice(1):prev.hardStop}hardNext=false;i++;
  if(i>=s.length&&calm){$('bar').style.width='100%';$('step').textContent='🌙 Good night';list=null;
   return say("You did everything. I'm proud of you. Snuggle in, close your eyes, and sleep well. Good night.",()=>{active=false;clearTimeout(timer);try{rec&&rec.abort()}catch(e){};wake&&wake.release()})}
  if(i>=s.length){$('bar').style.width='100%';$('step').textContent='🎉 All done!';const k=list;list=null;
