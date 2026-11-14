@@ -133,6 +133,23 @@ const T=x=>typeof x==='string'?x:x.weather?weatherText():x.text, cur=()=>LISTS[l
 const needsDone=x=>!inShower(x)&&!(typeof x==='object'&&x.auto===true)&&!/done/i.test(T(x))&&!/\?\s*$/.test(T(x));
 const withDone=(t,x)=>{const b=String(t).replace(/[.!?]+$/,'');return needsDone(x)?b+', and then press Done.':P_(String(t))};
 const stepVoice=x=>withDone(x.speak||T(x),x), stepLabel=x=>withDone(T(x),x);
+// ---------- Attention chime + name before "Still on…?" reminders ----------
+// Plays through an <audio> element (not Web Audio) so it follows the media volume like the voice.
+// Reminders 1–2: soft two-note chime. Reminder 3+: brighter three-note chime. Bedtime is a little quieter.
+const Chime={els:{},
+  wav(notes){const sr=22050,len=notes.length*0.28+0.5,n=Math.floor(sr*len),b=new ArrayBuffer(44+n*2),v=new DataView(b);
+    const w=(o,t)=>{for(let k=0;k<t.length;k++)v.setUint8(o+k,t.charCodeAt(k))};
+    w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+    v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+    for(let k=0;k<n;k++){const t=k/sr;let x=0;notes.forEach((f,j)=>{const s0=j*0.28;if(t>=s0){const d=t-s0;x+=Math.sin(2*Math.PI*f*d)*Math.exp(-d*4)*(d<0.01?d/0.01:1)}});
+      v.setInt16(44+k*2,Math.max(-1,Math.min(1,x*0.45))*32767,true)}
+    return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))},
+  el(kind){if(!this.els[kind]){const a=new Audio(this.wav(kind==='strong'?[784,988,1319]:[880,1175]));a.preload='auto';this.els[kind]=a}return this.els[kind]},
+  unlock(){['soft','strong'].forEach(k=>{try{const a=this.el(k);a.muted=true;const p=a.play();p&&p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})}catch(e){}})},
+  play(kind){try{const a=this.el(kind);a.muted=false;a.volume=list==='bedtime routine'?0.7:1;a.currentTime=0;const p=a.play();p&&p.catch(()=>{})}catch(e){}}
+};
+function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
+function nudge(msg,n){Chime.play(n>=3?'strong':'soft');const nm=kidName();setTimeout(()=>{if(active&&!paused)say((nm?nm+', ':'')+msg)},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -236,7 +253,7 @@ function next(){const prev=cur();clearStep();
  runStep(p+(left===1?' Last one!':(i===Math.floor(s.length/2)?' Halfway there!':'')))}
 function resetCheck(){clearTimeout(timer);checks=0}
 function armCheck(){clearTimeout(timer);if(!active||paused||timed())return;if(isSilent(cur())||isOnce(cur()))return;timer=setTimeout(()=>{checks++;
- if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");say(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)))}
+ if(list){const t=T(cur()),lab=stepLabel(cur()),hasDone=/done/i.test(lab),q=/\?\s*$/.test(t),s=t.toLowerCase().replace(/[.!?]$/,"");nudge(hasDone?(checks<3?`Still on that step? ${lab}`:lab):(q?t+' Press done.':(checks<3?`Still on ${s}? Press done.`:`Still here. ${t.replace(/[.!?]$/,'')}. Press done.`)),checks)}
  else say('Which list would you like to do? Say '+names()+'.');armCheck()},checkMs())}
 function stop(){if(HAS_ADAPT){Adapt.abandon();Adapt.resume()}active=false;paused=false;clearTimeout(timer);clearStep();Water.stop();try{rec&&rec.abort()}catch(e){}
  setPausedUI(false);
@@ -252,6 +269,7 @@ function primeRec(){return new Promise(res=>{if(!rec)return res('none');let done
 $('start').onclick=async()=>{
  // 1) unlock speech + AudioContext inside the tap (iOS)
  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(x){}
+ Chime.unlock();
  getWeather();$('start').style.display='none';$('app').style.display='block';
  // Morning: ask mic once for shower water listen (loudness only; nothing recorded)
  if(WATER_MIC&&typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
