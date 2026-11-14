@@ -184,8 +184,11 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    // Bedtime: never move on by itself (keeps him in sync). When time is up: chime + name + reminder, repeated until Done.
    if((list==='bedtime routine'&&x.auto==='orDone')||x.nag){let k=0;const over=()=>{if(i!==me)return;k++;
      const lab=stepLabel(x).replace(/[.!?]$/,'').replace(/, and then press done$/i,'');
-     nudge(x.hardStop?(k===1?x.hardStop+' ':'')+(x.hardNext||'')+' Press done.':(k<3?`Still on ${lab.toLowerCase()}? Press done.`:`${lab}. Press done.`),x.hardStop?3:k,true);
-     later(OVERDUE_GAP,over)};return over()}
+     const what=x.hardStop?(x.hardNext||'').replace(/[.!?]$/,''):lab,w=what.toLowerCase(),
+       V=[`${what}. Press done.`,`Still on ${w}? Press done.`,`Hey! ${what}, then press done.`,`Come on, ${w}. Press done.`,`Right now: ${w}. Press done.`,`Don't forget, ${w}. Then press done.`,`Let's go. ${what}. Press done.`];
+     let msg;if(x.hardStop&&k===1)msg=x.hardStop+' '+what+'. Press done.';else{let j;do{j=Math.floor(Math.random()*V.length)}while(V.length>1&&j===lastV);lastV=j;msg=V[j]}
+     nudge(msg,3,true);
+     later(OVERDUE_GAP-5000+Math.floor(Math.random()*10001),over)};let lastV=-1;return over()} // 10–20 s, random each time
    if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
   let extra=0;
