@@ -150,7 +150,7 @@ const Chime={els:{},
 };
 let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
-const OVERDUE_GAP=45000;
+const OVERDUE_GAP=15000;
 function nudge(msg,n){const at=i,l=list;Chime.play(n>=3?'strong':'soft');const nm=kidName();
  setTimeout(()=>{if(active&&!paused&&i===at&&list===l)say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
