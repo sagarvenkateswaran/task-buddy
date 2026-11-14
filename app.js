@@ -13,7 +13,8 @@ function say(t,cb,_r){if(VOICE())t=t.replace(/press Done/gi,'say I am done');spe
  u.onerror=ev=>{if(fired||id!==sayId)return;speaking=false;   // re-speak step 1 if it got interrupted (e.g. permission prompt)
   if(_r&&_r<3)return setTimeout(()=>{if(id===sayId)say(t,cb,_r+1)},500);fired=true;cb&&cb();listen()};
  speechSynthesis.speak(u);}
-function listen(){if(!VOICE())return;if(Water.active)return;if(!SR||speaking||listening||!active)return;
+function listen(){if(!VOICE())return;if(Water.active)return;if(list&&inShower(cur()))return; // keep mic shut in the shower so the speaker stays loud
+ if(!SR||speaking||listening||!active)return;
  try{rec.start();listening=true}catch(e){$('heard').textContent='Start error: '+e.message;listening=false;setTimeout(listen,800)}}
 function setup(){if(!SR){$('status').innerHTML='<span class=off>Voice listening not supported in this browser — use buttons. Steps will still be read aloud.</span>';return}
  rec=new SR();rec.lang='en-US';rec.continuous=!IOS;rec.maxAlternatives=1;rec.interimResults=false;
@@ -55,17 +56,22 @@ const ORIG={},P_=t=>/[.!?]$/.test(t)?t:t+'.';
 // water-off = below that for 25s.
 // SAFETY: the mic is ADVISORY ONLY. Shower steps always run their full timed schedule; water on/off never skips,
 // shortens, or jumps to drying. The only thing the mic can do is add extra "turn the water off" reminders.
+// Water listening is OFF: while the mic is open during the shower, iPhone switches to call-style audio and the
+// spoken reminders get much quieter. Shower steps are timed anyway, so they stay at full volume without it.
+const WATER_MIC=false;
 const Water={
   ok:false,perm:false,active:false,water:false,calibrating:false,ambient:0,
   stream:null,ctx:null,analyser:null,src:null,_raf:0,_cal:[],_above:0,_below:0,_onAt:0,
   CAL_MS:3500,ON_MS:3000,OFF_MS:25000,BAND_LO:1000,BAND_HI:8000,MARGIN:2.2,FLOOR:0.012,
   cue(msg){const el=$('showerCue');if(!el)return;el.style.display=msg?'block':'none';el.textContent=msg||''},
   async unlock(){ // call from Start tap (iOS gesture)
+    if(!WATER_MIC){this.perm=false;return false}
     try{this.ctx=new(window.AudioContext||window.webkitAudioContext)();await this.ctx.resume()}catch(e){this.ctx=null}
     try{const s=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
       this.perm=true;s.getTracks().forEach(tr=>tr.stop())}catch(e){this.perm=false}
     return this.perm},
   async start(){
+    if(!WATER_MIC){this.ok=false;this.active=false;return false} // off: an open mic makes iPhone drop the speaker volume
     if(this.active)return this.ok;this.ok=false;this.water=false;this.calibrating=true;this.ambient=0;this._cal=[];this._above=0;this._below=0;
     this.cue('Shower: calibrating…');
     try{
@@ -248,7 +254,7 @@ $('start').onclick=async()=>{
  try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(x){}
  getWeather();$('start').style.display='none';$('app').style.display='block';
  // Morning: ask mic once for shower water listen (loudness only; nothing recorded)
- if(typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
+ if(WATER_MIC&&typeof ROUTINE!=='undefined'&&ROUTINE==='morning routine'){
   $('step').textContent='🎤 Allow the microphone';$('status').innerHTML='<span class=off>Needed to hear the shower water (not for talking). Tap Allow…</span>';
   await Water.unlock();
   if(!Water.perm)$('status').innerHTML='<span class=off>Mic off — shower steps use timers. Press Done when you finish each step outside the shower.</span>';
