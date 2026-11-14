@@ -170,7 +170,7 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    if(sh==='off'&&Water.ok&&Water.water&&extra<OFF_EXTRA){extra++;return say(P_(hints[0]||T(x)),()=>later(OFF_EXTRA_GAP,afterTimed))}
    // Hard stop (e.g. moochcha): when time is up, a bright chime, then his name + "Time's up." leads into the next step
    // Bedtime: never move on by itself (keeps him in sync). When time is up: chime + name + reminder, repeated until Done.
-   if(list==='bedtime routine'&&x.auto==='orDone'){let k=0;const over=()=>{if(i!==me)return;k++;
+   if((list==='bedtime routine'&&x.auto==='orDone')||x.nag){let k=0;const over=()=>{if(i!==me)return;k++;
      const lab=stepLabel(x).replace(/[.!?]$/,'').replace(/, and then press done$/i,'');
      nudge(x.hardStop?(k===1?x.hardStop+' ':'')+(x.hardNext||'')+' Press done.':(k<3?`Still on ${lab.toLowerCase()}? Press done.`:`${lab}. Press done.`),x.hardStop?3:k);
      later(OVERDUE_GAP,over)};return over()}

@@ -16,7 +16,7 @@ const LISTS={
   {lead:"Go to Mukki.",text:"Are you done? If you are, press Done.",pre:300000,repeat:5,gap:60000,wait:60000,auto:true}, // asks at 5,6,7,8,9 min; moves on at 10 min or on yes/done
   "Stand up and wipe yourself.",
   "Flush.",
-  "Wash your hands.",
+  {text:"Wash your hands.",wait:60000,auto:'orDone',nag:true}, // 1 min, then nag until Done
   // Shave: Sunday, Tuesday, Thursday (before shower)
   {text:"You need to shave today. Put on shaving gel.",days:[0,2,4]},
   {text:"Get a clean new razor and shave yourself. Focus and do it slowly. Don't cut yourself.",days:[0,2,4]},
@@ -63,10 +63,10 @@ const LISTS={
   {text:"Go moochcha.",speak:"Go mooch-cha.",wait:120000,auto:'orDone',hardStop:"Time's up.",hardNext:"Put it in."}, // hard stop at 2 min
   {text:"Put it in.",wait:60000,auto:'orDone'},
   {text:"Flush.",wait:60000,auto:'orDone'},
-  "Wash your hands.",
+  {text:"Wash your hands.",wait:60000,auto:'orDone',nag:true}, // 1 min, then nag until Done
   {text:"Brush your teeth.",wait:120000,auto:'orDone'},
   {text:"Rinse your mouth.",wait:30000,auto:'orDone'},
-  {text:"Wash your hands.",wait:30000,auto:'orDone'},
+  {text:"Wash your hands.",wait:60000,auto:'orDone',nag:true}, // 1 min, then nag until Done
   "Turn off the light and the exhaust in the bathroom, and then press Done.",
   {text:"Press Done, and then go to bed. Good night!",wait:15000,auto:'orDone'}],
  "make a sandwich":["Wash your hands","Get two slices of bread","Spread the butter","Add the filling","Put the slices together","Put things back in the fridge"],
