@@ -23,9 +23,9 @@ const LISTS={
   // Shower block (all days). SAFETY: the phone stays OUTSIDE the shower. Nothing inside the shower needs a Done press.
   // shower:'enter'|'in'|'off' = timed, repeated, loud spoken reminders that advance on their own (Done is ignored).
   // shower:'exit' = the ONLY Done in the shower block, once he is out. The water mic is advisory only: it never skips or shortens a step.
-  // Timings follow the first version's timed shower (about 4 min soap, 2 min rinse, 2 min face, then water off).
+  // Timings follow the first version's timed shower (about 2 min soap, 2 min rinse, 2 min face, then water off).
   {text:"Leave your phone outside. Get into the shower.",wait:30000,auto:true,repeat:3,gap:15000,hints:["Get the water nice and warm.","Step all the way in."],shower:'enter'},
-  {text:"Put soap on.",repeat:6,gap:30000,wait:60000,auto:true,hints:["Keep soaping your arms and legs.","Soap your chest and back too.","Don't forget under your arms.","Keep soaping. Take your time."],shower:'in'},
+  {text:"Put soap on.",repeat:4,gap:25000,wait:45000,auto:true,hints:["Keep soaping your arms and legs.","Soap your chest and back too.","Don't forget under your arms.","Keep soaping. Take your time."],shower:'in'},
   {text:"Rinse off the soap.",repeat:4,gap:25000,wait:30000,auto:true,hints:["Rinse your arms and legs.","Rinse your face and hair.","Make sure all the soap is gone."],shower:'in'},
   {text:"Wash your face.",repeat:3,gap:25000,wait:45000,auto:true,hints:["Don't forget your face.","Wash your face gently."],shower:'in'},
   {text:"Turn off the shower.",repeat:3,gap:15000,wait:20000,auto:true,hints:["Turn the water all the way off.","Make sure the shower is off."],shower:'off'},
