@@ -136,22 +136,34 @@ const stepVoice=x=>withDone(x.speak||T(x),x), stepLabel=x=>withDone(T(x),x);
 // ---------- Attention chime + name before "Still on…?" reminders ----------
 // Plays through an <audio> element (not Web Audio) so it follows the media volume like the voice.
 // Reminders 1–2: soft two-note chime. Reminder 3+: brighter three-note chime. Bedtime is a little quieter.
-const Chime={els:{},
-  wav(notes){const sr=22050,len=notes.length*0.28+0.5,n=Math.floor(sr*len),b=new ArrayBuffer(44+n*2),v=new DataView(b);
+const Chime={els:{},last:'',
+  // Each sound is a tiny generated WAV: (t)=>sample, length in seconds. No files to download.
+  SOUNDS:{
+    soft:[1.1,t=>Chime.notes(t,[880,1175])],
+    strong:[1.4,t=>Chime.notes(t,[784,988,1319])],
+    bell:[1.6,t=>[1,2.76,5.4].reduce((x,m,j)=>x+Math.sin(2*Math.PI*660*m*t)*Math.exp(-t*(2+j*2))/(j+1),0)],
+    whistle:[0.9,t=>Math.sin(2*Math.PI*(1200*t+900*t*t*2))*Math.min(1,t*20)*Math.max(0,1-t/0.9)],
+    drum:[0.8,t=>[0,0.2].reduce((x,s0)=>x+(t>=s0?Math.sin(2*Math.PI*(110-40*(t-s0))*(t-s0))*Math.exp(-(t-s0)*9):0),0)*1.6],
+    ding:[1.0,t=>[0,0.18,0.36].reduce((x,s0)=>x+(t>=s0?Math.sin(2*Math.PI*1568*(t-s0))*Math.exp(-(t-s0)*7):0),0)],
+    boing:[0.9,t=>Math.sin(2*Math.PI*(300+120*Math.sin(t*28))*t)*Math.exp(-t*3)]},
+  notes(t,f){return f.reduce((x,hz,j)=>{const s0=j*0.28;if(t<s0)return x;const d=t-s0;return x+Math.sin(2*Math.PI*hz*d)*Math.exp(-d*4)*(d<0.01?d/0.01:1)},0)},
+  wav(kind){const [len,fn]=this.SOUNDS[kind],sr=22050,n=Math.floor(sr*len),b=new ArrayBuffer(44+n*2),v=new DataView(b);
     const w=(o,t)=>{for(let k=0;k<t.length;k++)v.setUint8(o+k,t.charCodeAt(k))};
     w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
     v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
-    for(let k=0;k<n;k++){const t=k/sr;let x=0;notes.forEach((f,j)=>{const s0=j*0.28;if(t>=s0){const d=t-s0;x+=Math.sin(2*Math.PI*f*d)*Math.exp(-d*4)*(d<0.01?d/0.01:1)}});
-      v.setInt16(44+k*2,Math.max(-1,Math.min(1,x*0.45))*32767,true)}
+    for(let k=0;k<n;k++)v.setInt16(44+k*2,Math.max(-1,Math.min(1,fn(k/sr)*0.45))*32767,true);
     return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))},
-  el(kind){if(!this.els[kind]){const a=new Audio(this.wav(kind==='strong'?[784,988,1319]:[880,1175]));a.preload='auto';this.els[kind]=a}return this.els[kind]},
-  unlock(){['soft','strong'].forEach(k=>{try{const a=this.el(k);a.muted=true;const p=a.play();p&&p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})}catch(e){}})},
-  play(kind){try{const a=this.el(kind);a.muted=false;a.volume=list==='bedtime routine'?0.7:1;a.currentTime=0;const p=a.play();p&&p.catch(()=>{})}catch(e){}}
+  el(kind){if(!this.els[kind]){const a=new Audio(this.wav(kind));a.preload='auto';this.els[kind]=a}return this.els[kind]},
+  unlock(){Object.keys(this.SOUNDS).forEach(k=>{try{const a=this.el(k);a.muted=true;const p=a.play();p&&p.then(()=>{a.pause();a.currentTime=0;a.muted=false}).catch(()=>{a.muted=false})}catch(e){}})},
+  play(kind,vol){try{const a=this.el(kind);a.muted=false;a.volume=vol!=null?vol:(list==='bedtime routine'?0.7:1);a.currentTime=0;const p=a.play();p&&p.catch(()=>{})}catch(e){}},
+  // Nag mode: a different sound than last time, at a random volume (35–100%), so it never becomes background noise
+  random(){const ks=Object.keys(this.SOUNDS).filter(k=>k!==this.last);const k=ks[Math.floor(Math.random()*ks.length)];this.last=k;
+    this.play(k,0.35+Math.random()*0.65)}
 };
 let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
 const OVERDUE_GAP=15000;
-function nudge(msg,n){const at=i,l=list;Chime.play(n>=3?'strong':'soft');const nm=kidName();
+function nudge(msg,n,nag){const at=i,l=list;if(nag)Chime.random();else Chime.play(n>=3?'strong':'soft');const nm=kidName();
  setTimeout(()=>{if(active&&!paused&&i===at&&list===l)say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
@@ -172,7 +184,7 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    // Bedtime: never move on by itself (keeps him in sync). When time is up: chime + name + reminder, repeated until Done.
    if((list==='bedtime routine'&&x.auto==='orDone')||x.nag){let k=0;const over=()=>{if(i!==me)return;k++;
      const lab=stepLabel(x).replace(/[.!?]$/,'').replace(/, and then press done$/i,'');
-     nudge(x.hardStop?(k===1?x.hardStop+' ':'')+(x.hardNext||'')+' Press done.':(k<3?`Still on ${lab.toLowerCase()}? Press done.`:`${lab}. Press done.`),x.hardStop?3:k);
+     nudge(x.hardStop?(k===1?x.hardStop+' ':'')+(x.hardNext||'')+' Press done.':(k<3?`Still on ${lab.toLowerCase()}? Press done.`:`${lab}. Press done.`),x.hardStop?3:k,true);
      later(OVERDUE_GAP,over)};return over()}
    if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
