@@ -150,7 +150,9 @@ const Chime={els:{},
 };
 let hardNext=false;
 function kidName(){try{return(localStorage.kidName||'').trim()}catch(e){return''}}
-function nudge(msg,n){Chime.play(n>=3?'strong':'soft');const nm=kidName();setTimeout(()=>{if(active&&!paused)say((nm?nm+', ':'')+msg)},1100)}
+const OVERDUE_GAP=45000;
+function nudge(msg,n){const at=i,l=list;Chime.play(n>=3?'strong':'soft');const nm=kidName();
+ setTimeout(()=>{if(active&&!paused&&i===at&&list===l)say(nm?nm+', '+msg.charAt(0).toLowerCase()+msg.slice(1):msg)},1100)}
 function later(ms,f){stepT.push(setTimeout(()=>{if(active&&!paused)f()},ms))}
 function clearStep(){stepT.forEach(clearTimeout);stepT=[]}
 function runStep(intro){clearStep();const x=cur();if(typeof x==='object'&&x.pre){if(intro||x.lead)say((intro?intro+' ':'')+(x.lead||''));later(x.pre,()=>speakStep(''))}else speakStep(intro?intro+' ':'')}
@@ -167,6 +169,11 @@ function speakStep(intro){const x=cur(),me=i,first=i===0&&!firstDone,sh=showerOf
    // Advisory: still hearing water after "Turn off the shower" → a few extra loud reminders, then go to the exit step anyway.
    if(sh==='off'&&Water.ok&&Water.water&&extra<OFF_EXTRA){extra++;return say(P_(hints[0]||T(x)),()=>later(OFF_EXTRA_GAP,afterTimed))}
    // Hard stop (e.g. moochcha): when time is up, a bright chime, then his name + "Time's up." leads into the next step
+   // Bedtime: never move on by itself (keeps him in sync). When time is up: chime + name + reminder, repeated until Done.
+   if(list==='bedtime routine'&&x.auto==='orDone'){let k=0;const over=()=>{if(i!==me)return;k++;
+     const lab=stepLabel(x).replace(/[.!?]$/,'').replace(/, and then press done$/i,'');
+     nudge(x.hardStop?(k===1?x.hardStop+' ':'')+(x.hardNext||'')+' Press done.':(k<3?`Still on ${lab.toLowerCase()}? Press done.`:`${lab}. Press done.`),x.hardStop?3:k);
+     later(OVERDUE_GAP,over)};return over()}
    if(x.hardStop){Chime.play('strong');return setTimeout(()=>{if(i===me&&active&&!paused){hardNext=true;next()}},1100)}
    next()};
   let extra=0;
